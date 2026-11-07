@@ -40,6 +40,9 @@ fallisca prima del lavoro e passi dopo. Se un controllo passa già con lo schele
 2. **Milestone = incremento che funziona**: alla fine di ognuna il programma fa qualcosa di più e tutti i test passano.
 3. **Teoria** (100–250 parole, markdown): perché lo facciamo, come, errori tipici. Se il test chiama classi o metodi, la teoria ne dichiara nome e firma esatti.
 4. **Suggerimenti**: 2–4, dal concetto all'indizio fino alla soluzione completa (l'ultimo).
+4b. **`search`** (sempre presente): 1–3 ricerche web per trovare da soli l'argomento del task quando non c'è un tutor.
+   Specifiche, con linguaggio e concetto, preferibilmente in inglese, dove la documentazione è più ricca
+   (es. `python csv DictReader`, `java record compact constructor validation`). Niente link: potrebbero non esistere.
 5. **Scaffold che si riduce**: all'inizio scheletri con firme e `TODO`, poi solo il percorso del file, poi niente.
 6. **Almeno un task TDD**: l'utente scrive prima il proprio test (scheletro che fallisce con `fail`), poi il codice.
 7. **`review`**: 2–4 criteri che guarderebbe un senior in una PR (nomi, gestione errori, responsabilità).

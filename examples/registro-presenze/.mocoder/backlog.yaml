@@ -26,6 +26,7 @@ tasks:
     title: Il progetto Maven e il primo main
     goal: Il progetto compila e stampa "Registro presenze".
     learn: [maven, struttura-progetto, package, metodo-main, git]
+    search: ["maven standard directory layout", "java package declaration folder structure"]
     theory: |
       **Perché Maven.** Un progetto Java vero non si compila a mano file per file: un
       *build tool* scarica le librerie, compila, esegue i test. Maven è lo standard più diffuso.
@@ -124,6 +125,7 @@ tasks:
     depends_on: [T01]
     goal: Uno Student si crea solo con id, nome ed email validi.
     learn: [java-record, validazione, eccezioni, unit-test]
+    search: ["java record compact constructor validation", "junit 5 assertThrows"]
     theory: |
       **Perché un record.** Uno studente è un *dato*: id, nome, email. Non cambia dopo la creazione.
       Java 21 ha i `record`: una riga ti dà costruttore, getter (`id()`, `fullName()`, `email()`),
@@ -223,6 +225,7 @@ tasks:
     depends_on: [T02]
     goal: Esistono gli stati PRESENT, ABSENT, LATE e il record Attendance che rifiuta valori mancanti.
     learn: [enum, java-time, null-safety]
+    search: ["java enum tutorial", "java LocalDate", "java Objects.requireNonNull"]
     theory: |
       **Enum: un insieme chiuso di valori.** Lo stato di una presenza può essere solo
       presente, assente o in ritardo. Una `String` accetterebbe anche "assnete"; un `enum` no.
@@ -316,6 +319,7 @@ tasks:
     depends_on: [T03]
     goal: Il Register gestisce studenti e presenze e protegge i propri dati.
     learn: [collezioni-map, optional, incapsulamento]
+    search: ["java LinkedHashMap computeIfAbsent", "java Optional ofNullable", "java List.copyOf unmodifiable"]
     theory: |
       **Una classe che custodisce dati.** `Register` è il cuore del programma: tiene studenti e
       presenze e decide le regole. Gli altri lo usano solo attraverso i suoi metodi: è
@@ -486,6 +490,7 @@ tasks:
     depends_on: [T04]
     goal: Register.absences(studentId) conta solo le assenze, e l'hai guidato tu con un test.
     learn: [tdd, stream]
+    search: ["test driven development red green refactor", "java stream filter count"]
     theory: |
       **Test-Driven Development.** Nei team seri spesso il test si scrive *prima* del codice:
       1. **Rosso**: scrivi un test che descrive cosa vuoi e lo vedi fallire.
@@ -604,6 +609,7 @@ tasks:
     depends_on: [T05]
     goal: CsvStore salva il registro su file e lo ricarica identico.
     learn: [file-io, formato-csv, eccezioni-checked, round-trip-test]
+    search: ["java nio Files readAllLines write", "junit 5 TempDir"]
     theory: |
       **Persistenza.** Finora tutto vive in memoria e sparisce alla chiusura. Salviamo su un file
       di testo, una riga per record, campi separati da `;`:
@@ -766,6 +772,7 @@ tasks:
     depends_on: [T06]
     goal: Cli trasforma una riga di testo in un'azione sul registro e restituisce la risposta.
     learn: [parsing-comandi, switch-expression, separazione-io-logica, gestione-errori]
+    search: ["java switch expression yield", "java String split regex limit"]
     theory: |
       **Separare logica e input/output.** Leggere dalla tastiera e stampare è difficile da testare.
       Per questo la classe `it.presenze.cli.Cli` non legge né stampa: riceve una riga e
@@ -950,6 +957,7 @@ tasks:
     depends_on: [T07]
     goal: Il programma legge comandi fino a exit, risponde e salva dopo ogni comando.
     learn: [input-output, persistenza-incrementale, test-di-integrazione]
+    search: ["java BufferedReader readLine loop", "java unit test System.in System.out"]
     theory: |
       **Mettere insieme i pezzi.** `App` ora fa solo da collegamento: carica il registro dal file,
       legge righe, le passa a `Cli`, stampa la risposta e salva. Tutta la logica sta già

@@ -61,6 +61,13 @@
           "items": { "$ref": "#/$defs/slug" }
         },
         "theory": { "$ref": "#/$defs/text", "description": "Markdown. Prima il perché, poi il come, poi gli errori tipici." },
+        "search": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "description": "Ricerche web per approfondire l'argomento del task anche senza IA: frasi brevi e specifiche con linguaggio e concetto, preferibilmente in inglese (es. 'java record compact constructor validation'). Niente link: potrebbero non esistere.",
+          "items": { "$ref": "#/$defs/text" }
+        },
         "files": { "type": "array", "items": { "$ref": "#/$defs/file" } },
         "hints": {
           "type": "array",

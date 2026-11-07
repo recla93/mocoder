@@ -118,10 +118,14 @@ function taskDetail(t: Task, p: Page, b: Backlog) {
     ${shown < t.hints.length ? button('hint', `Suggerimento ${shown + 1} di ${t.hints.length}${shown === t.hints.length - 1 ? ' (soluzione)' : ''}`, 'class="secondary"') : ''}`;
   const review = t.review?.length
     ? `<h3>Cosa guarderà la review</h3><ul>${t.review.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : '';
+  // a ogni livello di guida: cercare da soli è proprio la competenza da allenare
+  const search = t.search?.length
+    ? `<p class="search"><b>Per approfondire:</b> ${t.search.map(q => `<a href="#" data-type="search" data-q="${esc(q)}" title="Cerca sul web">${esc(q)}</a>`).join(' · ')}</p>` : '';
   return `
     <h2>${esc(t.id)} · ${esc(t.title)} ${status === 'done' ? '<span class="ok">✓</span>' : ''}</h2>
     <p class="goal"><b>Obiettivo:</b> ${esc(t.goal)}</p>
     ${theory}
+    ${search}
     ${files ? `<h3>I tuoi file</h3><ul>${files}</ul>` : ''}
     <div class="actions">${button('start', 'Prepara e apri i file', 'class="secondary"')} ${button('verify', 'Verifica', p.busy ? 'disabled' : '')}</div>
     ${results(p, b)}
@@ -192,7 +196,7 @@ export function renderPage(p: Page): string {
   function send(type, data = {}) {
     const text = type === 'ask' && question ? question.value : undefined;
     if (type === 'ask') { if (!text || !text.trim()) return; vscode.setState({ ...vscode.getState(), draft: '' }); }
-    vscode.postMessage({ type, id: data.id, path: data.path, text });
+    vscode.postMessage({ type, id: data.id, path: data.path, q: data.q, text });
   }
   // la bozza della domanda sopravvive agli aggiornamenti del pannello
   if (question) {

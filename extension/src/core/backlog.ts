@@ -13,6 +13,7 @@ export interface Task {
   goal: string;
   learn: string[];
   theory: string;
+  search?: string[];
   files?: TaskFile[];
   hints: string[];
   checks: Check[];
@@ -63,6 +64,7 @@ function autofix(data: any): string[] {
     if (!t || typeof t !== 'object') continue;
     toText(t.hints, `${t.id}.hints`);
     toText(t.review, `${t.id}.review`);
+    toText(t.search, `${t.id}.search`);
     for (const c of Array.isArray(t.checks) ? t.checks : []) {
       if (typeof c?.run === 'string' && /^pytest(\s|$)/.test(c.run)) {
         c.run = `python -m ${c.run}`;

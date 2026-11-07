@@ -22,6 +22,7 @@ tasks:
     title: Leggere il CSV
     goal: load_expenses legge il file e rifiuta le righe sbagliate indicando il numero di riga.
     learn: [dataclass, modulo-csv, decimal, pathlib, pytest]
+    search: ["python csv DictReader", "python decimal vs float money", "python dataclass frozen"]
     theory: |
       **Il progetto.** `pyproject.toml` descrive il progetto Python e configura pytest.
       Il codice sta nel *package* `spese` (una cartella con `__init__.py`), i test in `tests/`.
@@ -165,6 +166,7 @@ tasks:
     depends_on: [T01]
     goal: totals_by_category somma gli importi per categoria, dalla più costosa.
     learn: [dizionari, defaultdict, ordinamento]
+    search: ["python defaultdict", "python sorted key tuple"]
     theory: |
       **Aggregare.** È l'operazione base dell'analisi dati: raggruppi per una chiave e sommi.
       In Python basta un dizionario. `collections.defaultdict(Decimal)` parte da `Decimal(0)`
@@ -247,6 +249,7 @@ tasks:
     depends_on: [T02]
     goal: totals_by_month raggruppa per anno-mese in ordine cronologico, guidata da un tuo test.
     learn: [tdd, date-formattazione]
+    search: ["test driven development pytest", "python datetime strftime"]
     theory: |
       **Test-Driven Development.** Prima scrivi un test che fallisce (rosso), poi il codice minimo
       che lo fa passare (verde), poi sistemi il codice (refactor). Ti costringe a decidere cosa
@@ -341,6 +344,7 @@ tasks:
     depends_on: [T03]
     goal: python -m spese file.csv stampa il report; gli errori vanno su stderr con un exit code diverso da 0.
     learn: [cli, exit-code, stderr, formattazione-stringhe]
+    search: ["python __main__.py python -m", "python sys.exit exit code stderr"]
     theory: |
       **Un programma da terminale vero.** `python -m spese spese.csv` esegue il file
       `spese/__main__.py`. Mettiamo la logica in `main(argv: list[str] | None = None) -> int`:

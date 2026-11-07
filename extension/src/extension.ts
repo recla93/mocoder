@@ -202,7 +202,7 @@ class Tutor implements vscode.WebviewViewProvider {
     });
   }
 
-  async onMessage(m: { type: string; id?: string; path?: string; value?: string; text?: string }) {
+  async onMessage(m: { type: string; id?: string; path?: string; value?: string; text?: string; q?: string }) {
     const root = rootDir();
     switch (m.type) {
       case 'prompt': return vscode.commands.executeCommand('mocoder.copyPlannerPrompt');
@@ -218,6 +218,10 @@ class Tutor implements vscode.WebviewViewProvider {
       case 'ask': return m.text?.trim() ? this.ask(m.text.trim()) : undefined;
       case 'explain': return this.ask('La verifica non passa. Aiutami a capire l\'errore senza darmi la soluzione.');
       case 'review': return this.review('task');
+      case 'search':
+        // solo le ricerche del task, sempre verso un motore di ricerca: la pagina non può aprire URL arbitrari
+        if (m.q && this.task?.search?.includes(m.q)) await vscode.env.openExternal(vscode.Uri.parse(`https://www.google.com/search?q=${encodeURIComponent(m.q)}`));
+        return;
     }
   }
 
