@@ -123,6 +123,16 @@ export function openaiCompatible(opts: { baseUrl: string; model: string; apiKey?
   };
 }
 
+/**
+ * Modelli gratuiti o locali: vanno bene per il tutor, meno per correggere i test di un percorso.
+ * shortcut: riconosciuti dal nome e dall'indirizzo (Ollama, ":free" di OpenRouter, "-free", ":cloud"); un modello
+ * gratuito con un nome diverso passa per "a pagamento", e l'unica conseguenza è l'ordine dei pulsanti.
+ */
+export function isFreeModel(s: { provider: string; baseUrl: string; model: string }): boolean {
+  if (s.provider === 'anthropic') return false;
+  return /\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/)/.test(s.baseUrl) || /(:free|-free|:cloud)$/i.test(s.model);
+}
+
 export interface Usage { month: string; tokens: number }
 
 /** Conta i token del mese e blocca le richieste oltre il budget (0 = nessun limite). */

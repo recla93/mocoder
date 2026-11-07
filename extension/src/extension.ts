@@ -14,7 +14,7 @@ import { passed, runChecks, type CheckResult } from './core/checks.ts';
 import { completedMilestone, nextTask, statusOf } from './core/progress.ts';
 import { redGreen, type VerifyFailure } from './core/verify.ts';
 import { commandsHash, commandsOf, suspicious } from './core/trust.ts';
-import { anthropic, openaiCompatible, withBudget, AiError, type Complete, type Usage } from './ai/providers.ts';
+import { anthropic, openaiCompatible, withBudget, isFreeModel, AiError, type Complete, type Usage } from './ai/providers.ts';
 import { fill, fixRequest, fixUntilGreen, plan, promptBody, taskContext, mentorMessages, reviewMessages, type Exchange, type Guidance, type StudentFile } from './ai/roles.ts';
 import { renderPage } from './view.ts';
 
@@ -559,13 +559,13 @@ async function verifyBacklog(ctx: vscode.ExtensionContext, out: vscode.OutputCha
   if (!failure) return void vscode.window.showInformationMessage('Backlog verificato: tutti i controlli funzionano. Puoi iniziare.');
 
   const complete = await getComplete(ctx, 'main');
-  const FIX = 'Fai correggere al Planner';
-  const COPY = 'Copia la richiesta per un LLM esterno';
-  const pick = await vscode.window.showErrorMessage(describeFailure(failure), ...(complete ? [FIX, COPY] : [COPY]));
-  if (pick === COPY) {
-    await vscode.env.clipboard.writeText(fixRequest(backlogText, solutionText, failure));
-    return void vscode.window.showInformationMessage('Richiesta copiata. Incollala nel tuo LLM, poi importa la risposta con "mocoder: Importa backlog".');
-  }
+  // con un modello gratuito o locale correggere i test riesce di rado: la strada consigliata è un LLM esterno
+  const free = !!complete && isFreeModel(aiSettings());
+  const FIX = free ? 'Prova con il modello gratuito' : 'Fai correggere al Planner';
+  const actions = !complete ? [COPY_REQUEST] : free ? [COPY_REQUEST, FIX] : [FIX, COPY_REQUEST];
+  const advice = free ? ' Con un modello gratuito conviene un LLM esterno (Claude, ChatGPT, Gemini…): copia la richiesta, incollala lì e importa la risposta.' : '';
+  const pick = await vscode.window.showErrorMessage(describeFailure(failure) + advice, ...actions);
+  if (pick === COPY_REQUEST) return copyForExternal(fixRequest(backlogText, solutionText, failure));
   if (pick !== FIX || !complete) return;
 
   let result: Awaited<ReturnType<typeof fixUntilGreen>>;
@@ -585,11 +585,20 @@ async function verifyBacklog(ctx: vscode.ExtensionContext, out: vscode.OutputCha
     return void vscode.window.showInformationMessage(`Backlog corretto in ${result.rounds === 1 ? "1 passaggio" : `${result.rounds} passaggi`} e verificato: puoi iniziare.`);
   }
   const again = await vscode.window.showWarningMessage(
-    `Il Planner non è riuscito a sistemare tutto. ${describeFailure(result.failure)} Prova con un modello più capace o con un LLM esterno.`, COPY);
-  if (again) {
-    await vscode.env.clipboard.writeText(fixRequest(result.backlogText, result.solutionText, result.failure));
-    void vscode.window.showInformationMessage('Richiesta copiata. Incollala nel tuo LLM, poi importa la risposta con "mocoder: Importa backlog".');
-  }
+    `Il Planner non è riuscito a sistemare tutto. ${describeFailure(result.failure)} Prova con un modello più capace o con un LLM esterno.`, COPY_REQUEST);
+  if (again) await copyForExternal(fixRequest(result.backlogText, result.solutionText, result.failure));
+}
+
+const COPY_REQUEST = 'Copia la richiesta per un LLM esterno';
+
+/** Mette la richiesta negli appunti e porta dritti all'import della risposta. */
+async function copyForExternal(request: string) {
+  await vscode.env.clipboard.writeText(request);
+  const next = await vscode.window.showInformationMessage(
+    'Richiesta copiata negli appunti. Incollala in Claude, ChatGPT o Gemini, copia tutta la risposta e poi importala.',
+    'Importa la risposta',
+  );
+  if (next) await vscode.commands.executeCommand('mocoder.import');
 }
 
 export function activate(ctx: vscode.ExtensionContext) {

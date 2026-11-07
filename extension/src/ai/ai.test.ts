@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
-import { anthropic, openaiCompatible, withBudget, AiError, type ChatRequest, type Complete, type Usage } from './providers.ts';
+import { anthropic, openaiCompatible, withBudget, isFreeModel, AiError, type ChatRequest, type Complete, type Usage } from './providers.ts';
 import { plan, taskContext, mentorMessages, reviewMessages, promptBody, fill, fixUntilGreen, fixRequest, MAX_FIX_ROUNDS } from './roles.ts';
 import { parseBacklog, parsePlannerAnswer } from '../core/backlog.ts';
 
@@ -97,6 +97,15 @@ test('openai-compatibile: streaming, usage, troncamento ed errori', async () => 
   } finally {
     s.close();
   }
+});
+
+test('modelli gratuiti o locali riconosciuti', () => {
+  const free = (provider: string, baseUrl: string, model: string) => isFreeModel({ provider, baseUrl, model });
+  assert.ok(free('openai', 'http://localhost:11434/v1', 'gemma4:latest'));
+  assert.ok(free('openai', 'http://localhost:11434/v1', 'gemma4:31b-cloud'));
+  assert.ok(free('openai', 'https://openrouter.ai/api/v1', 'google/gemma-4-31b-it:free'));
+  assert.ok(!free('openai', 'https://api.openai.com/v1', 'gpt-5.5'));
+  assert.ok(!free('anthropic', '', 'claude-opus-5-5'));
 });
 
 test('budget: conta per mese e blocca oltre il limite', async () => {
