@@ -1,0 +1,6 @@
+# nel pacchetto vanno solo il bundle, l'icona e i metadati
+**
+!dist/extension.cjs
+!media/**
+!package.json
+!README.md

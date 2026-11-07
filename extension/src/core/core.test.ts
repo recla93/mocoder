@@ -109,6 +109,13 @@ test('runChecks: exit code, expect e stop al primo errore', async () => {
   assert.ok(!passed(stops));
 });
 
+test('runChecks: output non UTF-8 (Python su Windows) letto senza caratteri rovinati', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'mocoder-test-'));
+  // 0xE8 è "è" in Windows-1252 e Latin-1: è quello che Python scrive su una pipe di Windows
+  const [r] = await runChecks(root, [{ run: `"${process.execPath}" -e "process.stdout.write(Buffer.from([0x63, 0x61, 0x66, 0x66, 0xe8]))"` }]);
+  assert.equal(r.output, 'caffè');
+});
+
 test('runChecks: un ciclo infinito viene fermato con tutti i processi figli', async () => {
   const root = mkdtempSync(join(tmpdir(), 'mocoder-test-'));
   const t0 = Date.now();

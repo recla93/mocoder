@@ -17,19 +17,36 @@ function killTree(pid: number | undefined) {
   else try { process.kill(-pid, 'SIGKILL'); } catch { /* già terminato */ }
 }
 
+const utf8 = new TextDecoder('utf-8', { fatal: true });
+// Su Windows i programmi (Python, Java) scrivono nella codifica ANSI; i messaggi di cmd in quella OEM.
+// shortcut: si decodifica tutto come Windows-1252, quindi nei messaggi di cmd le lettere accentate si
+// rovinano ("non Š riconosciuto"); le regole di diagnose ne tengono conto.
+const fallback = new TextDecoder(WINDOWS ? 'windows-1252' : 'latin1');
+
+/** UTF-8 se valido, altrimenti la codifica tipica del sistema: niente "�" nell'output degli studenti. */
+export function decodeOutput(buf: Buffer): string {
+  try {
+    return utf8.decode(buf);
+  } catch {
+    return fallback.decode(buf);
+  }
+}
+
 function runOne(root: string, check: Check, timeoutMs: number): Promise<CheckResult> {
   return new Promise(done => {
     // detached su Unix crea un gruppo di processi, così kill(-pid) li ferma tutti
     const child = spawn(check.run, { cwd: root, shell: true, stdio: ['ignore', 'pipe', 'pipe'], detached: !WINDOWS });
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; killTree(child.pid); }, timeoutMs);
-    let stdout = '';
-    let all = '';
-    child.stdout.on('data', d => { stdout += d; all += d; });
-    child.stderr.on('data', d => { all += d; });
+    const outBufs: Buffer[] = [];
+    const allBufs: Buffer[] = [];
+    child.stdout.on('data', (d: Buffer) => { outBufs.push(d); allBufs.push(d); });
+    child.stderr.on('data', (d: Buffer) => { allBufs.push(d); });
     child.on('error', e => { clearTimeout(timer); done({ check, ok: false, output: e.message }); });
     child.on('close', code => {
       clearTimeout(timer);
+      const stdout = decodeOutput(Buffer.concat(outBufs));
+      const all = decodeOutput(Buffer.concat(allBufs));
       if (timedOut) return done({ check, ok: false, output: (all + `\n[interrotto dopo ${timeoutMs / 1000}s]`).slice(-MAX_OUTPUT) });
       const expected = !check.expect || new RegExp(check.expect).test(stdout);
       const missing = code === 0 && !expected ? `\n[nell'output manca: ${check.expect}]` : '';

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { diagnose } from './diagnose.ts';
+import { decodeOutput } from './checks.ts';
 
 // Estratti di output reali catturati eseguendo gli esempi (fase "rosso")
 const PYTEST_SKELETON = `>       raise NotImplementedError
@@ -63,7 +64,12 @@ test('Java: eccezione attesa, simboli mancanti e totale dei test di Surefire', (
 
 test('ambiente: Maven senza rete, strumento mancante, nessun consiglio inventato', () => {
   assert.deepEqual(titles(MAVEN_OFFLINE), ['Maven non riesce a scaricare ciò che gli serve']);
+  // byte reali di cmd.exe in italiano ("è" = 0x8A in OEM), decodificati come fa runChecks
+  const cmdBytes = Buffer.concat([Buffer.from('"mvn" non '), Buffer.from([0x8a]), Buffer.from(' riconosciuto come comando interno o esterno,')]);
+  assert.deepEqual(titles(decodeOutput(cmdBytes)), ['Manca il programma mvn']);
   assert.deepEqual(titles("'mvn' non è riconosciuto come comando interno o esterno,"), ['Manca il programma mvn']);
+  assert.deepEqual(titles("'mvn' is not recognized as an internal or external command,"), ['Manca il programma mvn']);
+  assert.deepEqual(titles('bash: mvn: command not found'), ['Manca il programma mvn']);
   assert.deepEqual(diagnose('qualcosa di mai visto').tips, []);
   assert.equal(diagnose('qualcosa di mai visto').tests, undefined);
 });

@@ -4,7 +4,7 @@
   "description": "Un tutor che ti guida a costruire a mano il tuo progetto, task dopo task.",
   "version": "0.1.0",
   "publisher": "mocoder",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "type": "module",
   "engines": {
     "vscode": "^1.95.0",
@@ -132,7 +132,8 @@
     "build": "esbuild src/extension.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --loader:.md=text --outfile=dist/extension.cjs",
     "typecheck": "tsc",
     "test": "node --test \"src/**/*.test.ts\"",
-    "verify": "node src/cli/verify.ts"
+    "verify": "node src/cli/verify.ts",
+    "package": "npm run build -- --minify && vsce package --no-dependencies --skip-license --allow-missing-repository --out mocoder.vsix"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",
@@ -142,7 +143,15 @@
   "devDependencies": {
     "@types/node": "^24.19.2",
     "@types/vscode": "^1.95.0",
+    "@vscode/vsce": "^4.1.0",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2"
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "mocoder esegue i comandi dei controlli dei task: serve una cartella attendibile."
+    },
+    "virtualWorkspaces": false
   }
 }

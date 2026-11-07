@@ -11,7 +11,8 @@ const code = (s: string) => `\`${s.trim()}\``;
 const RULES: { re: RegExp; tip: (m: RegExpMatchArray, out: string) => Tip }[] = [
   // strumenti mancanti (Windows in italiano e inglese, Unix)
   {
-    re: /'([\w.-]+)' non è riconosciuto|'([\w.-]+)' is not recognized|([\w.-]+): command not found|Termine '([\w.-]+)' non riconosciuto/,
+    // cmd usa le virgolette doppie, e la "è" arriva rovinata dalla codifica OEM: la regola accetta entrambe le cose
+    re: /["']([\w.-]+)["'] non \S{0,2}\s?riconosciuto|["']([\w.-]+)["'] is not recognized|([\w.-]+): command not found|Termine '([\w.-]+)' non riconosciuto/,
     tip: m => ({
       title: `Manca il programma ${m[1] ?? m[2] ?? m[3] ?? m[4]}`,
       text: 'Il comando del controllo non esiste su questo computer. Installa lo strumento indicato nella teoria del primo task, poi riapri VS Code.',

@@ -5,6 +5,17 @@ task dopo task: teoria, suggerimenti a scala, controlli automatici, un commit pe
 
 Architettura e roadmap: [docs/ARCHITETTURA.md](docs/ARCHITETTURA.md).
 
+## Installare
+
+Il pacchetto si crea con `npm run package` nella cartella `extension/` (produce `extension/mocoder.vsix`), poi:
+
+```bash
+code --install-extension extension/mocoder.vsix
+```
+
+In alternativa: VS Code → Estensioni → menu `…` → *Installa da VSIX…*. mocoder funziona solo nelle cartelle
+attendibili, perché esegue i comandi dei controlli.
+
 ## Come funziona
 
 1. Apri una cartella vuota → pannello **mocoder** → *Crea il prompt*: descrivi l'idea.
@@ -68,6 +79,10 @@ npm test
 
 ```bash
 npm run typecheck && npm run build
+```
+
+```bash
+npm run package
 ```
 
 Verifica di un backlog (schema + rosso/verde su ogni task; servono gli strumenti del progetto, es. Maven o pytest):
