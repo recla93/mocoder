@@ -15,6 +15,10 @@ Architettura e roadmap: [docs/ARCHITETTURA.md](docs/ARCHITETTURA.md).
 
 Livello di guida (`mocoder.guidance`): `guidato`, `suggerimenti`, `autonomo`.
 
+**Sicurezza:** i controlli dei task sono comandi eseguiti sul tuo computer e il backlog può arrivare da un chatbot.
+Prima della prima verifica mocoder mostra tutti i comandi (⚠ su quelli insoliti) e chiede di consentirli; l'approvazione
+vale per quella cartella e decade se i comandi cambiano, anche quando li riscrive il Planner.
+
 **Senza IA e senza rete** funziona tutto tranne il tutor: il prompt si incolla in qualsiasi chatbot, la risposta
 si importa dagli appunti (gli errori di formato tipici dei chatbot vengono corretti da soli) e, quando un controllo
 fallisce, il pannello spiega l'errore leggendo l'output di test e compilatore ("Cosa dice l'errore").

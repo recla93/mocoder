@@ -13,6 +13,7 @@ import { BACKLOG, DIR, SOLUTION, inside, prepareTask, readProgress, writeProgres
 import { passed, runChecks, type CheckResult } from './core/checks.ts';
 import { completedMilestone, nextTask, statusOf } from './core/progress.ts';
 import { redGreen, type VerifyFailure } from './core/verify.ts';
+import { commandsHash, commandsOf, suspicious } from './core/trust.ts';
 import { anthropic, openaiCompatible, withBudget, AiError, type Complete, type Usage } from './ai/providers.ts';
 import { fill, fixRequest, fixUntilGreen, plan, promptBody, taskContext, mentorMessages, reviewMessages, type Exchange, type Guidance, type StudentFile } from './ai/roles.ts';
 import { renderPage } from './view.ts';
@@ -255,6 +256,9 @@ class Tutor implements vscode.WebviewViewProvider {
     const root = rootDir();
     const task = this.task;
     if (!root || !task || !this.backlog || this.busy || statusOf(task, this.progress) === 'locked') return;
+    if (!(await approveCommands(this.ctx, this.out, this.backlog))) {
+      return void vscode.window.showInformationMessage('Verifica annullata: i comandi del backlog non sono stati consentiti.');
+    }
     await vscode.workspace.saveAll(false);
     this.busy = true;
     await this.render();
@@ -484,6 +488,38 @@ async function planWithAI(ctx: vscode.ExtensionContext, tutor: Tutor, out: vscod
   await installBacklog(tutor, root, result.backlogText!, result.solution ? result.solutionText : undefined);
 }
 
+// ---------------------------------------------------------------- Approvazione dei comandi
+
+// Nello stato privato di VS Code per la cartella, non nel progetto: un backlog non può approvarsi da solo.
+const APPROVED_KEY = 'mocoder.approvedCommands';
+const MAX_SHOWN = 30;
+
+/** Chiede di approvare i comandi del backlog, una volta per ogni insieme diverso di comandi. */
+async function approveCommands(ctx: vscode.ExtensionContext, out: vscode.OutputChannel, backlog: Backlog): Promise<boolean> {
+  const commands = commandsOf(backlog);
+  const hash = commandsHash(commands);
+  if (ctx.workspaceState.get(APPROVED_KEY) === hash) return true;
+  const lines = commands.map(c => `${suspicious(c) ? '⚠' : '•'} ${c}`);
+  out.appendLine('--- comandi dei controlli da approvare');
+  lines.forEach(l => out.appendLine(l));
+  const shown = lines.slice(0, MAX_SHOWN).join('\n')
+    + (lines.length > MAX_SHOWN ? `\n… e altri ${lines.length - MAX_SHOWN} (elenco completo nel pannello Output)` : '');
+  const warning = commands.some(suspicious) ? '\n\n⚠ = comando insolito per un controllo: leggilo con attenzione prima di consentirlo.' : '';
+  const ok = await vscode.window.showWarningMessage(
+    'Questo backlog esegue dei comandi sul tuo computer. Li consenti?',
+    {
+      modal: true,
+      detail: `Per verificare i task, mocoder lancerà:\n\n${shown}${warning}\n\n`
+        + 'Consenti solo se ti fidi della fonte del backlog. Se i comandi cambiano, te lo chiederò di nuovo.',
+    },
+    'Consenti questi comandi',
+  );
+  if (!ok) return false;
+  await ctx.workspaceState.update(APPROVED_KEY, hash);
+  out.appendLine('comandi approvati');
+  return true;
+}
+
 const describeFailure = (f: VerifyFailure) =>
   `${f.taskId}: ${f.kind === 'red' ? 'i controlli passano già prima del lavoro, quindi non verificano niente' : 'i controlli falliscono anche con la soluzione di riferimento'}.`;
 
@@ -498,9 +534,15 @@ async function verifyBacklog(ctx: vscode.ExtensionContext, out: vscode.OutputCha
   const s = b.value && parseSolution(solutionText, b.value);
   if (!b.value || !s?.value) return void vscode.window.showErrorMessage('Backlog o soluzione non validi: reimportali.');
   const log = (line: string) => out.appendLine(line);
-  const check = (bk: Backlog, sol: Solution) => redGreen(bk, sol, log);
+  const check = async (bk: Backlog, sol: Solution) => {
+    if (!(await approveCommands(ctx, out, bk))) throw new AiError('Verifica interrotta: i comandi del backlog non sono stati consentiti.');
+    return redGreen(bk, sol, log);
+  };
   out.show(true);
   out.appendLine('--- verifica del backlog: ogni task deve fallire prima del lavoro e passare con la soluzione');
+  if (!(await approveCommands(ctx, out, b.value))) {
+    return void vscode.window.showInformationMessage('Verifica annullata: i comandi del backlog non sono stati consentiti.');
+  }
   const failure = await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: 'mocoder: verifico il backlog…' },
     () => check(b.value!, s.value!));
