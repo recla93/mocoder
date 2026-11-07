@@ -198,6 +198,7 @@ class Tutor implements vscode.WebviewViewProvider {
       results: this.results?.taskId === task?.id ? this.results?.list : undefined,
       busy: this.busy,
       ai: await aiLabel(this.ctx),
+      canVerifyBacklog: !!rootDir() && existsSync(join(rootDir()!, SOLUTION)),
       chat: await Promise.all(chat.map(async e => ({ role: e.role, html: e.role === 'student' ? `<p>${escapeHtml(e.text)}</p>` : await markdown(e.text) }))),
       thinking: this.thinking,
     });
@@ -219,6 +220,7 @@ class Tutor implements vscode.WebviewViewProvider {
       case 'ask': return m.text?.trim() ? this.ask(m.text.trim()) : undefined;
       case 'explain': return this.ask('La verifica non passa. Aiutami a capire l\'errore senza darmi la soluzione.');
       case 'review': return this.review('task');
+      case 'verifyBacklog': return vscode.commands.executeCommand('mocoder.verifyBacklog');
       case 'search':
         // solo le ricerche del task, sempre verso un motore di ricerca: la pagina non può aprire URL arbitrari
         if (m.q && this.task?.search?.includes(m.q)) await vscode.env.openExternal(vscode.Uri.parse(`https://www.google.com/search?q=${encodeURIComponent(m.q)}`));
@@ -420,9 +422,17 @@ async function importBacklog(tutor: Tutor, out: vscode.OutputChannel) {
   if (source.startsWith('Dagli')) {
     text = await vscode.env.clipboard.readText();
   } else {
-    const [file] = await vscode.window.showOpenDialog({ filters: { 'YAML o Markdown': ['yaml', 'yml', 'md', 'txt'] } }) ?? [];
+    const [file] = await vscode.window.showOpenDialog({
+      defaultUri: vscode.Uri.file(root),   // la risposta del chatbot si salva di solito nel progetto
+      filters: { 'YAML o Markdown': ['yaml', 'yml', 'md', 'txt'] },
+    }) ?? [];
     if (!file) return;
     text = readFileSync(file.fsPath, 'utf8');
+  }
+  if (!text.trim()) {
+    return void vscode.window.showErrorMessage(source.startsWith('Dagli')
+      ? 'Gli appunti sono vuoti: nel chatbot copia tutta la risposta, poi riprova.'
+      : 'Il file è vuoto.');
   }
 
   const a = parsePlannerAnswer(text);
@@ -438,7 +448,7 @@ async function importBacklog(tutor: Tutor, out: vscode.OutputChannel) {
     if (fix) await vscode.env.clipboard.writeText(repairRequest(a.errors));
     return;
   }
-  if (a.fixes.length) void vscode.window.showInformationMessage(`Ho corretto da solo ${a.fixes.length} errori di formato del chatbot (dettagli nel pannello Output).`);
+  if (a.fixes.length) void vscode.window.showInformationMessage(`Ho corretto da solo ${a.fixes.length === 1 ? '1 errore' : `${a.fixes.length} errori`} di formato del chatbot (dettagli nel pannello Output).`);
   await installBacklog(tutor, root, a.backlogText!, a.solution ? a.solutionText : undefined);
 }
 
@@ -572,7 +582,7 @@ async function verifyBacklog(ctx: vscode.ExtensionContext, out: vscode.OutputCha
     writeFileSync(join(root, SOLUTION), result.solutionText, 'utf8');
   }
   if (!result.failure) {
-    return void vscode.window.showInformationMessage(`Backlog corretto in ${result.rounds} passaggi e verificato: puoi iniziare.`);
+    return void vscode.window.showInformationMessage(`Backlog corretto in ${result.rounds === 1 ? "1 passaggio" : `${result.rounds} passaggi`} e verificato: puoi iniziare.`);
   }
   const again = await vscode.window.showWarningMessage(
     `Il Planner non è riuscito a sistemare tutto. ${describeFailure(result.failure)} Prova con un modello più capace o con un LLM esterno.`, COPY);

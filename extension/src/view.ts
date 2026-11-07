@@ -19,6 +19,7 @@ export interface Page {
   results?: CheckResult[];
   busy: boolean;
   ai?: string;              // modello e consumo, se l'IA è configurata
+  canVerifyBacklog: boolean; // c'è una soluzione di riferimento: i controlli si possono verificare
   chat: { role: 'student' | 'tutor' | 'review'; html: string }[];
   thinking: boolean;
 }
@@ -142,6 +143,7 @@ export function renderPage(p: Page): string {
       <progress max="${b.tasks.length}" value="${p.progress.done.length}"></progress>
       <span class="muted">${p.progress.done.length}/${b.tasks.length} task</span>
       <div class="muted">${p.ai ? `IA: ${esc(p.ai)}` : `<a href="#" data-type="configure">Configura l'IA</a>`}</div>
+      ${p.canVerifyBacklog ? '<div class="muted"><a href="#" data-type="verifyBacklog" title="Ogni controllo deve fallire prima del lavoro e passare con la soluzione">Verifica i controlli del percorso</a></div>' : ''}
       <label class="muted">Guida
         <select data-type="guidance">
           ${(['guidato', 'suggerimenti', 'autonomo'] as const).map(g => `<option ${g === p.guidance ? 'selected' : ''}>${g}</option>`).join('')}
@@ -159,7 +161,7 @@ export function renderPage(p: Page): string {
   h1 { font-size: 1.2em; margin: 12px 0 4px; } h2 { font-size: 1.1em; margin: 16px 0 4px; } h3 { font-size: 1em; margin: 14px 0 4px; }
   button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 4px 10px; border-radius: 2px; cursor: pointer; font: inherit; margin: 2px 0; }
   button:hover { background: var(--vscode-button-hoverBackground); }
-  button.secondary { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
+  button.secondary { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: 1px solid var(--vscode-button-border, var(--vscode-contrastBorder, var(--vscode-focusBorder))); }
   button:disabled { opacity: .5; cursor: default; }
   ul.tasks { list-style: none; padding: 0; margin: 0; }
   button.task { background: none; color: inherit; width: 100%; text-align: left; padding: 2px 4px; }
