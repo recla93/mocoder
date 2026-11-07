@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { anthropic, openaiCompatible, withBudget, AiError, type ChatRequest, type Complete, type Usage } from './providers.ts';
-import { plan, taskContext, mentorMessages, promptBody, fill } from './roles.ts';
+import { plan, taskContext, mentorMessages, promptBody, fill, fixUntilGreen, fixRequest, MAX_FIX_ROUNDS } from './roles.ts';
 import { parseBacklog, parsePlannerAnswer } from '../core/backlog.ts';
 
 /** Server finto: registra la richiesta e risponde con l'handler dato. */
@@ -146,6 +146,32 @@ test('plan: corregge un backlog invalido e si ferma se non è fattibile', async 
   const bad: Complete = async () => { calls++; return { text: '```yaml\nproject: x\n```', inputTokens: 0, outputTokens: 0 }; };
   assert.ok((await plan(bad, 'idea')).errors.length);
   assert.equal(calls, 3);                           // 1 + 2 correzioni, poi si arrende
+});
+
+test('fixUntilGreen: rimanda al Planner il task che fallisce la verifica, poi si ferma', async () => {
+  const start = { backlogText, solutionText };
+  const failure = { taskId: 'T01', kind: 'green' as const, output: 'E   assert False' };
+  const prompts: string[] = [];
+  const fixer: Complete = async r => { prompts.push(r.messages[0].content); return { text: good, inputTokens: 0, outputTokens: 0 }; };
+
+  const verdicts = [failure, null];
+  const ok = await fixUntilGreen(fixer, start, async () => verdicts.shift()!);
+  assert.equal(ok.failure, null);
+  assert.equal(ok.rounds, 1);
+  assert.match(prompts[0], /Task T01[\s\S]*assert False[\s\S]*project: analisi-spese[\s\S]*tasks:/);
+
+  prompts.length = 0;
+  const stuck = await fixUntilGreen(fixer, start, async () => failure);
+  assert.deepEqual(stuck.failure, failure);
+  assert.equal(stuck.rounds, MAX_FIX_ROUNDS);
+  assert.equal(prompts.length, MAX_FIX_ROUNDS);   // non insiste all'infinito sullo stesso task
+
+  // ogni correzione sistema un task e la verifica si sposta sul successivo: il limite è per task
+  const moving = [failure, failure, { ...failure, taskId: 'T02' }, { ...failure, taskId: 'T03' }, null];
+  const walked = await fixUntilGreen(fixer, start, async () => moving.shift()!);
+  assert.equal(walked.failure, null);
+  assert.equal(walked.rounds, 4);
+  assert.match(fixRequest(backlogText, solutionText, { ...failure, kind: 'red' }), /PRIMA del lavoro/);
 });
 
 test('il Mentor non riceve la soluzione finché lo studente non l\'ha aperta', () => {

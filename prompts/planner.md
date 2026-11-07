@@ -46,10 +46,13 @@ fallisca prima del lavoro e passi dopo. Se un controllo passa già con lo schele
 8. **Lavoro reale**: identificatori in inglese, testi per l'utente in italiano, convenzioni standard del linguaggio, struttura di progetto standard (Maven/Gradle, pyproject, package.json...).
 
 ### Regole tecniche sui controlli
-1. Ogni task ha controlli automatici che falliscono finché il lavoro non è fatto.
+1. Ogni task ha controlli automatici che falliscono finché il lavoro non è fatto. Un controllo passa solo se il
+   comando termina con exit code 0 (e l'output contiene `expect`, se presente): l'obiettivo di un task non può
+   essere "un test che fallisce". Per insegnare il TDD, il test dello studente fallisce nello scheletro e passa a task finito.
 2. I test forniti (`given: true`) usano solo codice creato in quel task o in quelli precedenti.
 3. Test deterministici: niente rete, niente data/ora corrente (usa date fisse), niente input da tastiera, file solo in cartelle temporanee.
-4. `run`: un solo comando per check, senza `&&` né pipe, valido su Windows, macOS e Linux.
+4. `run`: un solo comando per check, senza `&&` né pipe, valido su Windows, macOS e Linux, eseguito dalla radice
+   del progetto. Per Python usa `python -m pytest`, non `pytest`: solo così i moduli nella radice sono importabili.
 5. `depends_on` solo verso task precedenti.
 6. Sicurezza informatica: solo bersagli locali e legali (container, macchine di laboratorio), mai sistemi di terzi.
 

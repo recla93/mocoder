@@ -126,7 +126,7 @@
       "additionalProperties": false,
       "required": ["run"],
       "properties": {
-        "run": { "$ref": "#/$defs/text", "description": "Un solo comando, senza && né pipe, che funzioni su Windows, macOS e Linux. Stdin chiuso." },
+        "run": { "$ref": "#/$defs/text", "description": "Un solo comando, senza && né pipe, che funzioni su Windows, macOS e Linux. Stdin chiuso. Il check passa solo se il comando termina con exit code 0 (e, se c'è expect, l'output lo contiene): un task non può avere come obiettivo un test che fallisce." },
         "expect": { "$ref": "#/$defs/text", "description": "Opzionale: regex che deve comparire nell'output." }
       }
     }

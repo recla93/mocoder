@@ -23,6 +23,9 @@ Le chiavi restano nel portachiavi del sistema. Poi:
 - **Crea il percorso con l'IA**: il Planner valuta la fattibilità, scrive backlog e soluzione e si corregge da solo se lo schema non torna.
 - **Tutor IA** nel pannello: domande sul task e "Spiegami l'errore". Risponde con domande e concetti, non con la soluzione.
 - **Review** a fine task e a fine milestone, come in una pull request.
+- **Verifica del backlog**: se un controllo non funziona, *Fai correggere al Planner* (fino a 2 tentativi per task)
+  oppure *Copia la richiesta per un LLM esterno* e reimporta la risposta. Correggere i test richiede un modello capace:
+  i modelli gratuiti piccoli vanno bene per il tutor, meno per questo.
 
 Impostazioni: `mocoder.ai.model` (default `claude-opus-5-5`), `mocoder.ai.mentorModel` (un modello economico o locale
 per le domande), `mocoder.ai.monthlyTokenBudget` (0 = senza limite).

@@ -8,13 +8,13 @@ import schema from '../../schema/backlog.schema.json' with { type: 'json' };
 import plannerPrompt from '../../prompts/planner.md';
 import mentorPrompt from '../../prompts/mentor.md';
 import reviewerPrompt from '../../prompts/reviewer.md';
-import { parseBacklog, parseSolution, parsePlannerAnswer, repairRequest, type Backlog, type Task } from './core/backlog.ts';
+import { parseBacklog, parseSolution, parsePlannerAnswer, repairRequest, type Backlog, type Solution, type Task } from './core/backlog.ts';
 import { BACKLOG, DIR, SOLUTION, inside, prepareTask, readProgress, writeProgress, type Progress } from './core/workspace.ts';
 import { passed, runChecks, type CheckResult } from './core/checks.ts';
 import { completedMilestone, nextTask, statusOf } from './core/progress.ts';
-import { redGreen } from './core/verify.ts';
+import { redGreen, type VerifyFailure } from './core/verify.ts';
 import { anthropic, openaiCompatible, withBudget, AiError, type Complete, type Usage } from './ai/providers.ts';
-import { fill, plan, promptBody, taskContext, mentorMessages, reviewMessages, type Exchange, type Guidance, type StudentFile } from './ai/roles.ts';
+import { fill, fixRequest, fixUntilGreen, plan, promptBody, taskContext, mentorMessages, reviewMessages, type Exchange, type Guidance, type StudentFile } from './ai/roles.ts';
 import { renderPage } from './view.ts';
 
 const git = promisify(execFile);
@@ -475,22 +475,60 @@ async function planWithAI(ctx: vscode.ExtensionContext, tutor: Tutor, out: vscod
   await installBacklog(tutor, root, result.backlogText!, result.solution ? result.solutionText : undefined);
 }
 
-async function verifyBacklog(out: vscode.OutputChannel) {
+const describeFailure = (f: VerifyFailure) =>
+  `${f.taskId}: ${f.kind === 'red' ? 'i controlli passano già prima del lavoro, quindi non verificano niente' : 'i controlli falliscono anche con la soluzione di riferimento'}.`;
+
+async function verifyBacklog(ctx: vscode.ExtensionContext, out: vscode.OutputChannel) {
   const root = rootDir();
   if (!root || !existsSync(join(root, BACKLOG)) || !existsSync(join(root, SOLUTION))) {
     return void vscode.window.showErrorMessage(`Servono ${BACKLOG} e ${SOLUTION}.`);
   }
-  const b = parseBacklog(readFileSync(join(root, BACKLOG), 'utf8'));
-  const s = b.value && parseSolution(readFileSync(join(root, SOLUTION), 'utf8'), b.value);
+  const backlogText = readFileSync(join(root, BACKLOG), 'utf8');
+  const solutionText = readFileSync(join(root, SOLUTION), 'utf8');
+  const b = parseBacklog(backlogText);
+  const s = b.value && parseSolution(solutionText, b.value);
   if (!b.value || !s?.value) return void vscode.window.showErrorMessage('Backlog o soluzione non validi: reimportali.');
+  const log = (line: string) => out.appendLine(line);
+  const check = (bk: Backlog, sol: Solution) => redGreen(bk, sol, log);
   out.show(true);
   out.appendLine('--- verifica del backlog: ogni task deve fallire prima del lavoro e passare con la soluzione');
-  const ok = await vscode.window.withProgress(
+  const failure = await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: 'mocoder: verifico il backlog…' },
-    () => redGreen(b.value!, s.value!, line => out.appendLine(line)));
-  void (ok
-    ? vscode.window.showInformationMessage('Backlog verificato: tutti i controlli funzionano. Puoi iniziare.')
-    : vscode.window.showErrorMessage('Alcuni controlli non funzionano: vedi il pannello Output "mocoder".'));
+    () => check(b.value!, s.value!));
+  if (!failure) return void vscode.window.showInformationMessage('Backlog verificato: tutti i controlli funzionano. Puoi iniziare.');
+
+  const complete = await getComplete(ctx, 'main');
+  const FIX = 'Fai correggere al Planner';
+  const COPY = 'Copia la richiesta per un LLM esterno';
+  const pick = await vscode.window.showErrorMessage(describeFailure(failure), ...(complete ? [FIX, COPY] : [COPY]));
+  if (pick === COPY) {
+    await vscode.env.clipboard.writeText(fixRequest(backlogText, solutionText, failure));
+    return void vscode.window.showInformationMessage('Richiesta copiata. Incollala nel tuo LLM, poi importa la risposta con "mocoder: Importa backlog".');
+  }
+  if (pick !== FIX || !complete) return;
+
+  let result: Awaited<ReturnType<typeof fixUntilGreen>>;
+  try {
+    result = await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: 'mocoder: il Planner corregge i controlli…' },
+      () => fixUntilGreen(complete, { backlogText, solutionText }, check, log, failure));
+  } catch (e) {
+    return void vscode.window.showErrorMessage(e instanceof AiError ? e.message : `Errore inatteso: ${(e as Error).message}`);
+  }
+  if (result.rounds > 0) {
+    // anche una correzione parziale è meglio dell'originale: i task sistemati restano sistemati
+    writeFileSync(join(root, BACKLOG), result.backlogText, 'utf8');
+    writeFileSync(join(root, SOLUTION), result.solutionText, 'utf8');
+  }
+  if (!result.failure) {
+    return void vscode.window.showInformationMessage(`Backlog corretto in ${result.rounds} passaggi e verificato: puoi iniziare.`);
+  }
+  const again = await vscode.window.showWarningMessage(
+    `Il Planner non è riuscito a sistemare tutto. ${describeFailure(result.failure)} Prova con un modello più capace o con un LLM esterno.`, COPY);
+  if (again) {
+    await vscode.env.clipboard.writeText(fixRequest(result.backlogText, result.solutionText, result.failure));
+    void vscode.window.showInformationMessage('Richiesta copiata. Incollala nel tuo LLM, poi importa la risposta con "mocoder: Importa backlog".');
+  }
 }
 
 export function activate(ctx: vscode.ExtensionContext) {
@@ -514,7 +552,7 @@ export function activate(ctx: vscode.ExtensionContext) {
     vscode.commands.registerCommand('mocoder.import', () => importBacklog(tutor, out)),
     vscode.commands.registerCommand('mocoder.verify', () => tutor.verify()),
     vscode.commands.registerCommand('mocoder.review', () => tutor.review('task')),
-    vscode.commands.registerCommand('mocoder.verifyBacklog', () => verifyBacklog(out)),
+    vscode.commands.registerCommand('mocoder.verifyBacklog', () => verifyBacklog(ctx, out)),
   );
 }
 

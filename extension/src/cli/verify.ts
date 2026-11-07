@@ -27,7 +27,7 @@ async function main(args: string[]): Promise<number> {
     s.errors.forEach(e => console.log('ERRORE', e));
     return 1;
   }
-  return (await redGreen(b.value, s.value, console.log)) ? 0 : 1;
+  return (await redGreen(b.value, s.value, console.log)) ? 1 : 0;
 }
 
 if (import.meta.main) process.exitCode = await main(process.argv.slice(2));
