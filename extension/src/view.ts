@@ -2,8 +2,7 @@ import type { Backlog, Task } from './core/backlog.ts';
 import type { CheckResult } from './core/checks.ts';
 import type { Progress } from './core/workspace.ts';
 import { statusOf, nextTask } from './core/progress.ts';
-
-export type Guidance = 'guidato' | 'suggerimenti' | 'autonomo';
+import type { Guidance } from './ai/roles.ts';
 
 export interface Page {
   cspSource: string;
@@ -18,6 +17,9 @@ export interface Page {
   guidance: Guidance;
   results?: CheckResult[];
   busy: boolean;
+  ai?: string;              // modello e consumo, se l'IA è configurata
+  chat: { role: 'student' | 'tutor' | 'review'; html: string }[];
+  thinking: boolean;
 }
 
 const esc = (s: string) =>
@@ -39,7 +41,9 @@ function welcome(p: Page) {
       <li>Incolla il prompt nel tuo LLM (Claude, ChatGPT, locale…) e copia tutta la risposta.</li>
       <li>Importala: mocoder la valida e ti guida task dopo task.</li>
     </ol>
-    ${button('prompt', '1. Crea il prompt')} ${button('import', '3. Importa la risposta')}`;
+    ${button('prompt', '1. Crea il prompt', 'class="secondary"')} ${button('import', '3. Importa la risposta', 'class="secondary"')}
+    <h3>Oppure con l'IA configurata in mocoder</h3>
+    ${p.ai ? button('plan', "Crea il percorso con l'IA") : button('configure', "Configura l'IA", 'class="secondary"')}`;
 }
 
 function taskList(b: Backlog, p: Page) {
@@ -70,6 +74,23 @@ function results(p: Page, b: Backlog) {
   return `<h3>Verifica</h3>${rows}${footer}`;
 }
 
+function tutorSection(t: Task, p: Page) {
+  if (!p.ai) return `<h3>Tutor IA</h3><p class="muted">Collega Claude, Ollama o un altro provider per fare domande e ricevere review.</p>${button('configure', "Configura l'IA", 'class="secondary"')}`;
+  const who = { student: 'Tu', tutor: 'Tutor', review: 'Review' };
+  const failed = p.results?.some(r => !r.ok);
+  const done = statusOf(t, p.progress) === 'done';
+  return `
+    <h3>Tutor IA</h3>
+    ${p.chat.map(m => `<div class="msg ${m.role}"><b>${who[m.role]}</b>${m.html}</div>`).join('')}
+    ${p.thinking ? '<p class="muted">Il tutor sta pensando…</p>' : ''}
+    <textarea id="question" rows="3" placeholder="Fai una domanda sul task (Ctrl+Invio per inviare)"></textarea>
+    <div class="actions">
+      ${button('ask', 'Chiedi', p.thinking ? 'disabled' : '')}
+      ${failed ? button('explain', "Spiegami l'errore", `class="secondary" ${p.thinking ? 'disabled' : ''}`) : ''}
+      ${done ? button('review', 'Chiedi una review', `class="secondary" ${p.thinking ? 'disabled' : ''}`) : ''}
+    </div>`;
+}
+
 function taskDetail(t: Task, p: Page, b: Backlog) {
   const status = statusOf(t, p.progress);
   const shown = p.hintsHtml.length;
@@ -92,6 +113,7 @@ function taskDetail(t: Task, p: Page, b: Backlog) {
     <div class="actions">${button('start', 'Prepara e apri i file', 'class="secondary"')} ${button('verify', 'Verifica', p.busy ? 'disabled' : '')}</div>
     ${results(p, b)}
     ${hints}
+    ${tutorSection(t, p)}
     ${review}`;
 }
 
@@ -102,6 +124,7 @@ export function renderPage(p: Page): string {
       <h1>${esc(b.title)}</h1>
       <progress max="${b.tasks.length}" value="${p.progress.done.length}"></progress>
       <span class="muted">${p.progress.done.length}/${b.tasks.length} task</span>
+      <div class="muted">${p.ai ? `IA: ${esc(p.ai)}` : `<a href="#" data-type="configure">Configura l'IA</a>`}</div>
       <label class="muted">Guida
         <select data-type="guidance">
           ${(['guidato', 'suggerimenti', 'autonomo'] as const).map(g => `<option ${g === p.guidance ? 'selected' : ''}>${g}</option>`).join('')}
@@ -130,27 +153,46 @@ export function renderPage(p: Page): string {
   .hint { margin: 6px 0; } .hint > p:first-of-type { display: inline; }
   .error { border-left: 3px solid var(--vscode-inputValidation-errorBorder); padding: 4px 8px; }
   pre { background: var(--vscode-textCodeBlock-background); padding: 6px; overflow-x: auto; white-space: pre-wrap; font-size: .9em; }
+  .check pre { max-height: 220px; overflow-y: auto; }
   code { font-family: var(--vscode-editor-font-family); }
   .actions { margin: 12px 0; }
   progress { width: 100%; } select { background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border); }
   a { color: var(--vscode-textLink-foreground); }
+  textarea { width: 100%; box-sizing: border-box; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, transparent); font: inherit; padding: 4px; }
+  .msg { margin: 6px 0; padding: 4px 8px; border-left: 3px solid var(--vscode-textBlockQuote-border); }
+  .msg.student { border-color: var(--vscode-button-background); } .msg.review { border-color: var(--vscode-testing-iconPassed); }
+  .msg > b { display: block; font-size: .85em; color: var(--vscode-descriptionForeground); }
 </style></head>
 <body>${body}
 <script nonce="${p.nonce}">
   const vscode = acquireVsCodeApi();
+  // il riassunto dei test sta in fondo all'output
+  document.querySelectorAll('.check pre').forEach(p => { p.scrollTop = p.scrollHeight; });
   document.addEventListener('click', e => {
     const el = e.target.closest('[data-type]');
     if (!el || el.tagName === 'SELECT') return;
     e.preventDefault();
-    vscode.postMessage({ type: el.dataset.type, id: el.dataset.id, path: el.dataset.path });
+    send(el.dataset.type, el.dataset);
   });
+  const question = document.getElementById('question');
+  function send(type, data = {}) {
+    const text = type === 'ask' && question ? question.value : undefined;
+    if (type === 'ask') { if (!text || !text.trim()) return; vscode.setState({ ...vscode.getState(), draft: '' }); }
+    vscode.postMessage({ type, id: data.id, path: data.path, text });
+  }
+  // la bozza della domanda sopravvive agli aggiornamenti del pannello
+  if (question) {
+    question.value = (vscode.getState() || {}).draft || '';
+    question.addEventListener('input', () => vscode.setState({ ...vscode.getState(), draft: question.value }));
+    question.addEventListener('keydown', e => { if (e.key === 'Enter' && e.ctrlKey) send('ask'); });
+  }
   document.addEventListener('change', e => {
     if (e.target.dataset.type === 'guidance') vscode.postMessage({ type: 'guidance', value: e.target.value });
   });
   // ricorda lo scroll tra un aggiornamento e l'altro della pagina
   const state = vscode.getState() || {};
   if (state.scroll) window.scrollTo(0, state.scroll);
-  window.addEventListener('scroll', () => vscode.setState({ scroll: window.scrollY }));
+  window.addEventListener('scroll', () => vscode.setState({ ...vscode.getState(), scroll: window.scrollY }));
 </script>
 </body></html>`;
 }

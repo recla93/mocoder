@@ -99,6 +99,34 @@ export function parseSolution(text: string, backlog: Backlog): Parsed<Solution> 
   return problems.length ? { errors: problems } : { value: data, errors: [] };
 }
 
+export interface PlannerAnswer {
+  feasibility: string;          // il testo prima dei blocchi YAML
+  backlogText?: string;
+  solutionText?: string;
+  backlog?: Backlog;
+  solution?: Solution;
+  errors: string[];
+}
+
+/** Risposta di un LLM (interno o incollata): fattibilità + backlog + soluzione opzionale. */
+export function parsePlannerAnswer(text: string): PlannerAnswer {
+  const fence = text.search(/^```ya?ml/m);
+  const feasibility = (fence >= 0 ? text.slice(0, fence) : '').trim();
+  const blocks = yamlBlocks(text);
+  const backlogText = blocks.find(b => /^project:/m.test(b));
+  const solutionText = blocks.find(b => b !== backlogText && /^tasks:/m.test(b));
+  if (!backlogText) return { feasibility, errors: ['Nessun backlog trovato (manca "project:").'] };
+  const b = parseBacklog(backlogText);
+  if (!b.value) return { feasibility, backlogText, solutionText, errors: b.errors };
+  if (!solutionText) return { feasibility, backlogText, backlog: b.value, errors: [] };
+  const s = parseSolution(solutionText, b.value);
+  return { feasibility, backlogText, solutionText, backlog: b.value, solution: s.value, errors: s.errors.map(e => `soluzione: ${e}`) };
+}
+
+export const repairRequest = (errors: string[]) =>
+  'Il backlog non è valido per lo schema mocoder. Correggi questi errori e restituisci di nuovo ' +
+  `entrambi i blocchi YAML completi (backlog e soluzione), senza altro testo:\n${errors.map(e => `- ${e}`).join('\n')}`;
+
 /**
  * Blocchi ```yaml di una risposta LLM; se non ce ne sono, tutto il testo.
  * La chiusura deve stare a inizio riga: i ``` dei suggerimenti sono indentati dentro lo YAML.

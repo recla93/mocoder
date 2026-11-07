@@ -56,6 +56,21 @@
         "command": "mocoder.verifyBacklog",
         "title": "Verifica il backlog (rosso → verde)",
         "category": "mocoder"
+      },
+      {
+        "command": "mocoder.configureAI",
+        "title": "Configura l'IA",
+        "category": "mocoder"
+      },
+      {
+        "command": "mocoder.plan",
+        "title": "Crea un percorso con l'IA",
+        "category": "mocoder"
+      },
+      {
+        "command": "mocoder.review",
+        "title": "Chiedi una review del task",
+        "category": "mocoder"
       }
     ],
     "configuration": {
@@ -75,6 +90,40 @@
           ],
           "default": "guidato",
           "description": "Quanto ti aiuta il tutor."
+        },
+        "mocoder.ai.provider": {
+          "type": "string",
+          "enum": [
+            "anthropic",
+            "openai"
+          ],
+          "enumDescriptions": [
+            "Anthropic (Claude)",
+            "Qualsiasi API OpenAI-compatibile: OpenAI, OpenRouter, Groq, LM Studio, Ollama"
+          ],
+          "default": "anthropic",
+          "description": "Provider dell'IA. Più comodo: comando \"mocoder: Configura l'IA\"."
+        },
+        "mocoder.ai.baseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Indirizzo dell'API. Vuoto per Anthropic; es. http://localhost:11434/v1 per Ollama."
+        },
+        "mocoder.ai.model": {
+          "type": "string",
+          "default": "claude-opus-5-5",
+          "description": "Modello per il Planner e le review."
+        },
+        "mocoder.ai.mentorModel": {
+          "type": "string",
+          "default": "",
+          "description": "Modello per le domande al tutor. Vuoto = lo stesso di mocoder.ai.model; un modello economico o locale fa risparmiare."
+        },
+        "mocoder.ai.monthlyTokenBudget": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "description": "Token massimi al mese (ingresso + uscita). 0 = nessun limite."
         }
       }
     }
@@ -86,6 +135,7 @@
     "verify": "node src/cli/verify.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
     "ajv": "^8.20.0",
     "yaml": "^2.9.1"
   },

@@ -188,7 +188,7 @@ che manda il caso al Reviewer.
 mocoder/
   docs/ARCHITETTURA.md
   schema/backlog.schema.json   backlog + $defs/solution
-  prompts/planner.md            (mentor.md, reviewer.md in fase 2)
+  prompts/                      planner.md, mentor.md, reviewer.md
   examples/
     registro-presenze/.mocoder/ backlog.yaml + solution.yaml   (Java)
     analisi-spese/.mocoder/     backlog.yaml + solution.yaml   (Python)
@@ -197,7 +197,8 @@ mocoder/
     src/cli/         verify: schema + rosso/verde da riga di comando
     src/view.ts      HTML del pannello
     src/extension.ts comandi, pannello, git
-    (src/ai/, src/knowledge/ arrivano in fase 2-3)
+    src/ai/          providers (Anthropic SDK, OpenAI-compatibile, budget), roles (Planner, Mentor, Reviewer)
+    (src/knowledge/ arriva in fase 3)
 ```
 
 ## 9. Roadmap
@@ -206,7 +207,7 @@ mocoder/
 |---|---|---|
 | **0 — Carta** ✅ | Schema + prompt Planner + un backlog d'esempio generato con un LLM esterno e seguito **a mano** | Il percorso insegna davvero? Prima di scrivere codice |
 | **1 — MVP** ✅ | Estensione: backlog, pannello, check, suggerimenti dal file, progressi, commit per task, import della risposta di un LLM esterno, verifica rosso/verde. **Nessuna IA a runtime** | Un utente completa il registro presenze in Java |
-| **2 — IA** | Gateway (BYOK + Ollama), Planner interno, Mentor dinamico, Reviewer, (la verifica sulla soluzione di riferimento esiste già) | Da un'idea nuova a un backlog funzionante senza interventi |
+| **2 — IA** ✅ | Gateway (Claude via SDK ufficiale con fallback sui rifiuti, qualsiasi API OpenAI-compatibile, Ollama), chiavi nel portachiavi, budget mensile di token, Planner interno con correzione automatica (max 2), Mentor socratico che non riceve la soluzione finché lo studente non la apre, Reviewer per task e milestone | Da un'idea nuova a un backlog funzionante senza interventi |
 | **3 — Conoscenza** | Vault, MCP client, server MCP mocoder, ripasso a intervalli | La teoria arriva dalle tue note |
 | **4 — Domini** | Template per web, data/BI (notebook), cybersecurity (lab in container, solo bersagli locali), architettura | Un percorso completo per dominio |
 | **5 — Ovunque** | Versione web (Theia/code-server), app telefono per teoria/quiz/progressi, sincronizzazione | Studio dal telefono, codice al PC |

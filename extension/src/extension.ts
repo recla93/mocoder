@@ -1,22 +1,28 @@
 import * as vscode from 'vscode';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { randomBytes } from 'node:crypto';
 import schema from '../../schema/backlog.schema.json' with { type: 'json' };
 import plannerPrompt from '../../prompts/planner.md';
-import { parseBacklog, parseSolution, yamlBlocks, type Backlog } from './core/backlog.ts';
+import mentorPrompt from '../../prompts/mentor.md';
+import reviewerPrompt from '../../prompts/reviewer.md';
+import { parseBacklog, parseSolution, parsePlannerAnswer, repairRequest, type Backlog, type Task } from './core/backlog.ts';
 import { BACKLOG, DIR, SOLUTION, inside, prepareTask, readProgress, writeProgress, type Progress } from './core/workspace.ts';
 import { passed, runChecks, type CheckResult } from './core/checks.ts';
 import { completedMilestone, nextTask, statusOf } from './core/progress.ts';
 import { redGreen } from './core/verify.ts';
-import { renderPage, type Guidance } from './view.ts';
+import { anthropic, openaiCompatible, withBudget, AiError, type Complete, type Usage } from './ai/providers.ts';
+import { fill, plan, promptBody, taskContext, mentorMessages, reviewMessages, type Exchange, type Guidance, type StudentFile } from './ai/roles.ts';
+import { renderPage } from './view.ts';
 
 const git = promisify(execFile);
 const rootDir = () => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-const guidance = () => vscode.workspace.getConfiguration('mocoder').get<Guidance>('guidance', 'guidato');
+const config = () => vscode.workspace.getConfiguration('mocoder');
+const guidance = () => config().get<Guidance>('guidance', 'guidato');
 const escapeHtml = (s: string) => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!);
+const MAX_FILE = 200_000;
 
 /** Markdown con il renderer di VS Code: nessuna libreria in più. */
 async function markdown(md: string): Promise<string> {
@@ -27,7 +33,106 @@ async function markdown(md: string): Promise<string> {
   }
 }
 
+// ---------------------------------------------------------------- IA
+
+type Provider = 'anthropic' | 'openai';
+const USAGE_KEY = 'mocoder.usage';
+const secretKey = (p: Provider) => `mocoder.apiKey.${p}`;
+
+function aiSettings() {
+  const c = config();
+  return {
+    provider: c.get<Provider>('ai.provider', 'anthropic'),
+    baseUrl: c.get<string>('ai.baseUrl', ''),
+    model: c.get<string>('ai.model', 'claude-opus-5-5'),
+    mentorModel: c.get<string>('ai.mentorModel', ''),
+  };
+}
+
+/** Il modello che risponde a un ruolo, già con il conteggio del budget. undefined se l'IA non è configurata. */
+async function getComplete(ctx: vscode.ExtensionContext, role: 'main' | 'mentor'): Promise<Complete | undefined> {
+  const s = aiSettings();
+  const model = (role === 'mentor' && s.mentorModel) || s.model;
+  const apiKey = await ctx.secrets.get(secretKey(s.provider));
+  let complete: Complete;
+  if (s.provider === 'anthropic') {
+    if (!apiKey && !process.env.ANTHROPIC_API_KEY) return undefined;
+    complete = anthropic({ model, apiKey, baseURL: s.baseUrl });
+  } else {
+    if (!s.baseUrl || !model) return undefined;
+    complete = openaiCompatible({ baseUrl: s.baseUrl, model, apiKey });
+  }
+  return withBudget(
+    complete,
+    { get: () => ctx.globalState.get<Usage>(USAGE_KEY), set: u => ctx.globalState.update(USAGE_KEY, u) },
+    () => config().get<number>('ai.monthlyTokenBudget', 0),
+  );
+}
+
+async function aiLabel(ctx: vscode.ExtensionContext): Promise<string | undefined> {
+  if (!(await getComplete(ctx, 'main'))) return undefined;
+  const s = aiSettings();
+  const u = ctx.globalState.get<Usage>(USAGE_KEY);
+  const tokens = u?.month === new Date().toISOString().slice(0, 7) ? u.tokens : 0;
+  return `${s.model} · ${(tokens / 1000).toFixed(1)}k token questo mese`;
+}
+
+async function configureAI(ctx: vscode.ExtensionContext) {
+  const choice = await vscode.window.showQuickPick([
+    { label: 'Anthropic (Claude)', provider: 'anthropic' as const, baseUrl: '' },
+    { label: 'Ollama (locale, gratis)', provider: 'openai' as const, baseUrl: 'http://localhost:11434/v1' },
+    { label: 'Altro provider OpenAI-compatibile', description: 'OpenAI, OpenRouter, Groq, LM Studio…', provider: 'openai' as const, baseUrl: 'https://api.openai.com/v1' },
+  ], { title: 'mocoder · Quale IA usi?' });
+  if (!choice) return;
+
+  let baseUrl = choice.baseUrl;
+  if (choice.label.startsWith('Altro')) {
+    const url = await vscode.window.showInputBox({ title: 'Indirizzo dell\'API', value: baseUrl, ignoreFocusOut: true });
+    if (!url) return;
+    baseUrl = url;
+  }
+
+  let models: string[] = [];
+  if (choice.label.startsWith('Ollama')) {
+    try {
+      const tags = await (await fetch('http://localhost:11434/api/tags')).json() as { models?: { name: string }[] };
+      models = (tags.models ?? []).map(m => m.name);
+    } catch {
+      void vscode.window.showWarningMessage('Ollama non risponde su localhost:11434: avvialo, poi scegli il modello.');
+    }
+  }
+  const current = aiSettings();
+  const model = models.length
+    ? (await vscode.window.showQuickPick(models, { title: 'Modello Ollama' }))
+    : await vscode.window.showInputBox({
+      title: 'Modello',
+      value: choice.provider === 'anthropic' ? (current.provider === 'anthropic' ? current.model : 'claude-opus-5-5') : '',
+      prompt: choice.provider === 'anthropic' ? 'Es. claude-opus-5-5 (consigliato) o claude-haiku-5-5 (economico)' : 'Nome del modello sul provider',
+      ignoreFocusOut: true,
+    });
+  if (!model) return;
+
+  if (!choice.label.startsWith('Ollama')) {
+    const key = await vscode.window.showInputBox({
+      title: 'Chiave API', password: true, ignoreFocusOut: true,
+      prompt: choice.provider === 'anthropic' ? 'Lascia vuoto per usare ANTHROPIC_API_KEY. La chiave resta nel portachiavi del sistema.' : 'La chiave resta nel portachiavi del sistema.',
+    });
+    if (key === undefined) return;
+    if (key) await ctx.secrets.store(secretKey(choice.provider), key);
+  }
+
+  const c = config();
+  await c.update('ai.provider', choice.provider, vscode.ConfigurationTarget.Global);
+  await c.update('ai.baseUrl', baseUrl, vscode.ConfigurationTarget.Global);
+  await c.update('ai.model', model, vscode.ConfigurationTarget.Global);
+  void vscode.window.showInformationMessage(
+    `IA configurata: ${model}. Il codice dei file del task viene inviato a questo provider quando chiedi aiuto o una review.`);
+}
+
+// ---------------------------------------------------------------- Pannello
+
 class Tutor implements vscode.WebviewViewProvider {
+  ctx: vscode.ExtensionContext;
   out: vscode.OutputChannel;
   view?: vscode.WebviewView;
   backlog?: Backlog;
@@ -35,9 +140,12 @@ class Tutor implements vscode.WebviewViewProvider {
   progress: Progress = { done: [], hints: {} };
   selected?: string;
   results?: { taskId: string; list: CheckResult[] };
+  chats = new Map<string, Exchange[]>();   // per task, solo in memoria
   busy = false;
+  thinking = false;
 
-  constructor(out: vscode.OutputChannel) {
+  constructor(ctx: vscode.ExtensionContext, out: vscode.OutputChannel) {
+    this.ctx = ctx;
     this.out = out;
   }
 
@@ -70,6 +178,7 @@ class Tutor implements vscode.WebviewViewProvider {
     if (!this.view) return;
     const task = this.task;
     const shown = task && guidance() !== 'autonomo' ? task.hints.slice(0, this.progress.hints[task.id] ?? 0) : [];
+    const chat = task ? this.chats.get(task.id) ?? [] : [];
     this.view.webview.html = renderPage({
       cspSource: this.view.webview.cspSource,
       nonce: randomBytes(16).toString('hex'),
@@ -83,20 +192,28 @@ class Tutor implements vscode.WebviewViewProvider {
       guidance: guidance(),
       results: this.results?.taskId === task?.id ? this.results?.list : undefined,
       busy: this.busy,
+      ai: await aiLabel(this.ctx),
+      chat: await Promise.all(chat.map(async e => ({ role: e.role, html: e.role === 'student' ? `<p>${escapeHtml(e.text)}</p>` : await markdown(e.text) }))),
+      thinking: this.thinking,
     });
   }
 
-  async onMessage(m: { type: string; id?: string; path?: string; value?: string }) {
+  async onMessage(m: { type: string; id?: string; path?: string; value?: string; text?: string }) {
     const root = rootDir();
     switch (m.type) {
       case 'prompt': return vscode.commands.executeCommand('mocoder.copyPlannerPrompt');
       case 'import': return vscode.commands.executeCommand('mocoder.import');
-      case 'guidance': return vscode.workspace.getConfiguration('mocoder').update('guidance', m.value, vscode.ConfigurationTarget.Global);
+      case 'plan': return vscode.commands.executeCommand('mocoder.plan');
+      case 'configure': return vscode.commands.executeCommand('mocoder.configureAI');
+      case 'guidance': return config().update('guidance', m.value, vscode.ConfigurationTarget.Global);
       case 'select': this.selected = m.id; return this.render();
       case 'open': if (root && m.path) await vscode.window.showTextDocument(vscode.Uri.file(inside(root, m.path)), { preview: false }); return;
       case 'start': return this.start();
       case 'hint': return this.hint();
       case 'verify': return this.verify();
+      case 'ask': return m.text?.trim() ? this.ask(m.text.trim()) : undefined;
+      case 'explain': return this.ask('La verifica non passa. Aiutami a capire l\'errore senza darmi la soluzione.');
+      case 'review': return this.review('task');
     }
   }
 
@@ -145,14 +262,78 @@ class Tutor implements vscode.WebviewViewProvider {
         writeProgress(root, this.progress);
         await this.commit(root, `feat(${task.id}): ${task.title}`);
         const m = completedMilestone(this.backlog, this.progress, task);
-        void vscode.window.showInformationMessage(m
-          ? `Milestone "${m.title}" completata! Prima di andare avanti rileggi i criteri di review dei suoi task: cosa rifaresti diversamente?`
-          : `${task.id} completato.`);
+        if (m) {
+          void vscode.window.showInformationMessage(
+            `Milestone "${m.title}" completata! Prima di andare avanti fai rivedere il lavoro, come in una pull request.`,
+            'Chiedi la review della milestone',
+          ).then(go => go && this.review('milestone', task));
+        } else {
+          void vscode.window.showInformationMessage(`${task.id} completato.`);
+        }
       }
     } finally {
       this.busy = false;
       await this.render();
     }
+  }
+
+  /** File dell'utente dei task dati, letti dal disco così come sono ora. */
+  studentFiles(tasks: Task[]): StudentFile[] {
+    const root = rootDir()!;
+    const paths = [...new Set(tasks.flatMap(t => (t.files ?? []).filter(f => !f.given).map(f => f.path)))];
+    return paths.map(path => {
+      const abs = inside(root, path);
+      return existsSync(abs) && statSync(abs).size <= MAX_FILE ? { path, content: readFileSync(abs, 'utf8') } : { path };
+    });
+  }
+
+  /** Esegue una chiamata IA mostrando lo stato nel pannello; gli errori diventano messaggi chiari. */
+  async withAI(task: Task, entry: Exchange | undefined, run: (c: Complete) => Promise<string>, role: Exchange['role'], model: 'main' | 'mentor') {
+    const complete = await getComplete(this.ctx, model);
+    if (!complete) {
+      const go = await vscode.window.showWarningMessage('Configura prima un\'IA (Claude, Ollama o un altro provider).', 'Configura');
+      if (go) await vscode.commands.executeCommand('mocoder.configureAI');
+      return;
+    }
+    if (this.thinking) return;
+    const chat = this.chats.get(task.id) ?? [];
+    this.chats.set(task.id, chat);
+    if (entry) chat.push(entry);
+    this.thinking = true;
+    await this.render();
+    try {
+      chat.push({ role, text: await run(complete) });
+    } catch (e) {
+      const msg = e instanceof AiError ? e.message : `Errore inatteso: ${(e as Error).message}`;
+      this.out.appendLine(`IA: ${msg}`);
+      void vscode.window.showErrorMessage(msg);
+    } finally {
+      this.thinking = false;
+      await this.render();
+    }
+  }
+
+  async ask(question: string) {
+    const task = this.task;
+    if (!task) return;
+    await vscode.workspace.saveAll(false);
+    const history = [...(this.chats.get(task.id) ?? [])];
+    const results = this.results?.taskId === task.id ? this.results.list : undefined;
+    const context = taskContext(task, guidance(), this.progress.hints[task.id] ?? 0, this.studentFiles([task]), results);
+    await this.withAI(task, { role: 'student', text: question }, async complete =>
+      (await complete({ system: mentorPrompt, messages: mentorMessages(context, history, question), maxTokens: 16000, effort: 'low' })).text,
+    'tutor', 'mentor');
+  }
+
+  async review(scope: 'task' | 'milestone', of = this.task) {
+    if (!of || !this.backlog) return;
+    await vscode.workspace.saveAll(false);
+    const tasks = scope === 'task' ? [of] : this.backlog.tasks.filter(t => t.milestone === of.milestone);
+    const label = scope === 'task' ? `${of.id} · ${of.title}` : `milestone ${of.milestone}`;
+    this.selected = of.id;
+    await this.withAI(of, undefined, async complete =>
+      (await complete({ system: reviewerPrompt, messages: reviewMessages(tasks, this.studentFiles(tasks), label), maxTokens: 16000, effort: 'medium' })).text,
+    'review', 'main');
   }
 
   /** Un task = un commit, come in un team vero. Se git manca, il tutor funziona lo stesso. */
@@ -171,21 +352,51 @@ class Tutor implements vscode.WebviewViewProvider {
   }
 }
 
-async function copyPlannerPrompt() {
+// ---------------------------------------------------------------- Creare e importare un backlog
+
+async function askIdea(): Promise<string | undefined> {
   const idea = await vscode.window.showInputBox({ title: 'mocoder · 1/3', prompt: 'Descrivi la tua idea di progetto', ignoreFocusOut: true });
   if (!idea) return;
   const livello = await vscode.window.showQuickPick(['principiante', 'intermedio', 'avanzato'], { title: 'mocoder · 2/3', placeHolder: 'Il tuo livello' });
   if (!livello) return;
   const obiettivo = await vscode.window.showInputBox({ title: 'mocoder · 3/3', prompt: 'Cosa vuoi imparare? (opzionale)', ignoreFocusOut: true });
   if (obiettivo === undefined) return;
-  const values: Record<string, string> = {
+  return fill(promptBody(plannerPrompt), {
     idea, livello, obiettivo: obiettivo || 'non specificato', stack: 'a tua scelta', ore_settimana: 'non specificato',
     schema: JSON.stringify(schema, null, 2),
-  };
-  const body = plannerPrompt.slice(plannerPrompt.indexOf('\n---\n') + 5);
-  await vscode.env.clipboard.writeText(body.replace(/\{\{(\w+)\}\}/g, (_, k: string) => values[k] ?? ''));
+  });
+}
+
+async function copyPlannerPrompt() {
+  const prompt = await askIdea();
+  if (!prompt) return;
+  await vscode.env.clipboard.writeText(prompt);
   void vscode.window.showInformationMessage(
     'Prompt copiato. Incollalo nel tuo LLM, copia tutta la risposta e poi usa "mocoder: Importa backlog".');
+}
+
+/** Scrive backlog (e soluzione) nel progetto e azzera i progressi, chiedendo conferma se ne esiste già uno. */
+async function installBacklog(tutor: Tutor, root: string, backlogText: string, solutionText?: string): Promise<boolean> {
+  if (existsSync(join(root, BACKLOG))) {
+    const ok = await vscode.window.showWarningMessage('Sostituire il backlog esistente? I progressi ripartono da zero.', { modal: true }, 'Sostituisci');
+    if (!ok) return false;
+  }
+  mkdirSync(join(root, DIR), { recursive: true });
+  writeFileSync(join(root, BACKLOG), backlogText, 'utf8');
+  if (solutionText) writeFileSync(join(root, SOLUTION), solutionText, 'utf8');
+  writeProgress(root, { done: [], hints: {} });
+  tutor.selected = undefined;
+  tutor.chats.clear();
+  tutor.load();
+  await vscode.commands.executeCommand('mocoder.tutor.focus');
+  if (solutionText) {
+    const go = await vscode.window.showInformationMessage(
+      'Backlog pronto. Vuoi verificare che i controlli siano corretti prima di iniziare? (servono gli strumenti del progetto installati)', 'Verifica il backlog');
+    if (go) await vscode.commands.executeCommand('mocoder.verifyBacklog');
+  } else {
+    void vscode.window.showInformationMessage('Backlog pronto. Senza soluzione di riferimento non posso verificare i controlli in anticipo.');
+  }
+  return true;
 }
 
 async function importBacklog(tutor: Tutor, out: vscode.OutputChannel) {
@@ -202,42 +413,62 @@ async function importBacklog(tutor: Tutor, out: vscode.OutputChannel) {
     text = readFileSync(file.fsPath, 'utf8');
   }
 
-  const blocks = yamlBlocks(text);
-  const backlogText = blocks.find(b => /^project:/m.test(b));
-  const solutionText = blocks.find(b => b !== backlogText && /^tasks:/m.test(b));
-  const b = backlogText ? parseBacklog(backlogText) : { errors: ['Nessun backlog trovato (manca "project:").'] };
-  const s = b.value && solutionText ? parseSolution(solutionText, b.value) : undefined;
-  const errors = [...b.errors, ...(s?.errors ?? [])];
-  if (errors.length) {
+  const a = parsePlannerAnswer(text);
+  if (!a.backlog || a.errors.length) {
     out.appendLine('--- import: errori');
-    errors.forEach(e => out.appendLine(e));
+    a.errors.forEach(e => out.appendLine(e));
     out.show(true);
-    const fix = await vscode.window.showErrorMessage(`Il backlog non è valido (${errors.length} errori).`, 'Copia la richiesta di correzione per il LLM');
-    if (fix) {
-      await vscode.env.clipboard.writeText(
-        `Il backlog non è valido per lo schema mocoder. Correggi questi errori e restituisci di nuovo i blocchi YAML completi, senza altro testo:\n${errors.map(e => `- ${e}`).join('\n')}`);
-    }
+    const fix = await vscode.window.showErrorMessage(`Il backlog non è valido (${a.errors.length} errori).`, 'Copia la richiesta di correzione per il LLM');
+    if (fix) await vscode.env.clipboard.writeText(repairRequest(a.errors));
     return;
   }
+  await installBacklog(tutor, root, a.backlogText!, a.solution ? a.solutionText : undefined);
+}
 
-  if (existsSync(join(root, BACKLOG))) {
-    const ok = await vscode.window.showWarningMessage('Sostituire il backlog esistente? I progressi ripartono da zero.', { modal: true }, 'Sostituisci');
-    if (!ok) return;
+async function planWithAI(ctx: vscode.ExtensionContext, tutor: Tutor, out: vscode.OutputChannel) {
+  const root = rootDir();
+  if (!root) return void vscode.window.showErrorMessage('Apri prima la cartella (anche vuota) del progetto.');
+  const complete = await getComplete(ctx, 'main');
+  if (!complete) {
+    const go = await vscode.window.showWarningMessage('Configura prima un\'IA, oppure usa il prompt da copiare nel tuo LLM.', 'Configura');
+    if (go) await vscode.commands.executeCommand('mocoder.configureAI');
+    return;
   }
-  mkdirSync(join(root, DIR), { recursive: true });
-  writeFileSync(join(root, BACKLOG), backlogText!, 'utf8');
-  if (s?.value) writeFileSync(join(root, SOLUTION), solutionText!, 'utf8');
-  writeProgress(root, { done: [], hints: {} });
-  tutor.selected = undefined;
-  tutor.load();
-  await vscode.commands.executeCommand('mocoder.tutor.focus');
-  if (s?.value) {
-    const go = await vscode.window.showInformationMessage(
-      'Backlog importato. Vuoi verificare che i controlli siano corretti prima di iniziare? (servono gli strumenti del progetto installati)', 'Verifica il backlog');
-    if (go) await vscode.commands.executeCommand('mocoder.verifyBacklog');
-  } else {
-    void vscode.window.showInformationMessage('Backlog importato. Senza soluzione di riferimento non posso verificare i controlli in anticipo.');
+  const prompt = await askIdea();
+  if (!prompt) return;
+
+  let chars = 0;
+  let result: Awaited<ReturnType<typeof plan>>;
+  try {
+    result = await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: 'mocoder: il Planner prepara il percorso', cancellable: false },
+      async progress => {
+        let shown = 0;
+        return plan(complete, prompt, delta => {
+          chars += delta.length;
+          if (chars - shown > 2000) {
+            shown = chars;
+            progress.report({ message: `${Math.round(chars / 1000)}k caratteri scritti…` });
+          }
+        });
+      });
+  } catch (e) {
+    return void vscode.window.showErrorMessage(e instanceof AiError ? e.message : `Errore inatteso: ${(e as Error).message}`);
   }
+  out.appendLine(`--- planner: ${result.attempts} tentativi, ${result.errors.length} errori residui`);
+  result.errors.forEach(e => out.appendLine(e));
+
+  // la valutazione di fattibilità è la prima cosa che lo studente deve leggere
+  const doc = await vscode.workspace.openTextDocument({ language: 'markdown', content: result.feasibility || result.answer });
+  await vscode.window.showTextDocument(doc, { preview: true, viewColumn: vscode.ViewColumn.Active });
+
+  if (!result.backlog) {
+    return void vscode.window.showWarningMessage(result.errors.length && /^```ya?ml/m.test(result.answer)
+      ? `Il Planner non è riuscito a produrre un backlog valido dopo ${result.attempts} tentativi (dettagli nel pannello Output).`
+      : 'Il Planner ritiene l\'idea non fattibile così com\'è: leggi le alternative proposte.');
+  }
+  if (result.errors.length) void vscode.window.showWarningMessage('La soluzione di riferimento non è valida: installo il backlog senza verifica preventiva.');
+  await installBacklog(tutor, root, result.backlogText!, result.solution ? result.solutionText : undefined);
 }
 
 async function verifyBacklog(out: vscode.OutputChannel) {
@@ -260,7 +491,7 @@ async function verifyBacklog(out: vscode.OutputChannel) {
 
 export function activate(ctx: vscode.ExtensionContext) {
   const out = vscode.window.createOutputChannel('mocoder');
-  const tutor = new Tutor(out);
+  const tutor = new Tutor(ctx, out);
   tutor.load(); // anche a pannello chiuso i comandi devono conoscere il backlog
   const watcher = vscode.workspace.createFileSystemWatcher(`**/${DIR}/*`);
   const reload = () => tutor.load();
@@ -271,10 +502,14 @@ export function activate(ctx: vscode.ExtensionContext) {
     watcher.onDidCreate(reload),
     watcher.onDidDelete(reload),
     vscode.workspace.onDidChangeConfiguration(e => { if (e.affectsConfiguration('mocoder')) void tutor.render(); }),
+    ctx.secrets.onDidChange(() => void tutor.render()),
     vscode.window.registerWebviewViewProvider('mocoder.tutor', tutor),
+    vscode.commands.registerCommand('mocoder.configureAI', () => configureAI(ctx)),
+    vscode.commands.registerCommand('mocoder.plan', () => planWithAI(ctx, tutor, out)),
     vscode.commands.registerCommand('mocoder.copyPlannerPrompt', copyPlannerPrompt),
     vscode.commands.registerCommand('mocoder.import', () => importBacklog(tutor, out)),
     vscode.commands.registerCommand('mocoder.verify', () => tutor.verify()),
+    vscode.commands.registerCommand('mocoder.review', () => tutor.review('task')),
     vscode.commands.registerCommand('mocoder.verifyBacklog', () => verifyBacklog(out)),
   );
 }

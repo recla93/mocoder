@@ -15,14 +15,28 @@ Architettura e roadmap: [docs/ARCHITETTURA.md](docs/ARCHITETTURA.md).
 
 Livello di guida (`mocoder.guidance`): `guidato`, `suggerimenti`, `autonomo`.
 
+### Con l'IA (opzionale)
+
+Comando **mocoder: Configura l'IA**: Claude (Anthropic), Ollama in locale o qualsiasi API OpenAI-compatibile.
+Le chiavi restano nel portachiavi del sistema. Poi:
+
+- **Crea il percorso con l'IA**: il Planner valuta la fattibilità, scrive backlog e soluzione e si corregge da solo se lo schema non torna.
+- **Tutor IA** nel pannello: domande sul task e "Spiegami l'errore". Risponde con domande e concetti, non con la soluzione.
+- **Review** a fine task e a fine milestone, come in una pull request.
+
+Impostazioni: `mocoder.ai.model` (default `claude-opus-5-5`), `mocoder.ai.mentorModel` (un modello economico o locale
+per le domande), `mocoder.ai.monthlyTokenBudget` (0 = senza limite). Con Ollama alza il contesto
+(`OLLAMA_CONTEXT_LENGTH=32768`): il prompt del Planner contiene lo schema intero.
+
 ## Repository
 
 | Cartella | Contenuto |
 |---|---|
 | `schema/` | Formato del backlog e della soluzione (JSON Schema): il contratto con qualsiasi LLM |
-| `prompts/` | Prompt del Planner (idea → fattibilità → backlog + soluzione) |
+| `prompts/` | Prompt di Planner, Mentor e Reviewer |
 | `examples/` | Percorsi completi e verificati: Java (`registro-presenze`), Python (`analisi-spese`) |
 | `extension/src/core/` | Logica pura e testata: backlog, file, controlli, progressi, verifica rosso/verde |
+| `extension/src/ai/` | Provider IA (Claude, OpenAI-compatibile), budget, ruoli |
 | `extension/src/` | Estensione VS Code: pannello tutor e comandi |
 
 ## Sviluppo
