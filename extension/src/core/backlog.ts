@@ -38,7 +38,40 @@ ajv.addSchema(schema, 'backlog');
 const backlogShape = ajv.compile<Backlog>({ $ref: 'backlog' });
 const solutionShape = ajv.compile<Solution>({ $ref: 'backlog#/$defs/solution' });
 
-export type Parsed<T> = { value: T; errors: [] } | { value?: undefined; errors: string[] };
+export type Parsed<T> = { value: T; errors: []; fixes?: string[] } | { value?: undefined; errors: string[]; fixes?: string[] };
+
+/**
+ * Errori di formato tipici dei chatbot che si correggono senza ambiguità, prima della validazione.
+ * Il testo salvato resta quello originale: la correzione si riapplica a ogni lettura, sempre uguale.
+ */
+function autofix(data: any): string[] {
+  const fixes: string[] = [];
+  if (!data || typeof data !== 'object' || !Array.isArray(data.tasks)) return fixes;
+  const toText = (list: unknown, where: string) => {
+    if (!Array.isArray(list)) return;
+    list.forEach((v, i) => {
+      // "- Soluzione: return x" senza virgolette: YAML lo legge come { Soluzione: "return x" }
+      if (!v || typeof v !== 'object' || Array.isArray(v) || Object.keys(v).length !== 1) return;
+      const [[k, val]] = Object.entries(v);
+      if (typeof val !== 'string' && typeof val !== 'number') return;
+      list[i] = `${k}: ${val}`;
+      fixes.push(`${where}[${i}]: frase con ": " riportata a testo`);
+    });
+  };
+  toText(data.stack, 'stack');
+  for (const t of data.tasks) {
+    if (!t || typeof t !== 'object') continue;
+    toText(t.hints, `${t.id}.hints`);
+    toText(t.review, `${t.id}.review`);
+    for (const c of Array.isArray(t.checks) ? t.checks : []) {
+      if (typeof c?.run === 'string' && /^pytest(\s|$)/.test(c.run)) {
+        c.run = `python -m ${c.run}`;
+        fixes.push(`${t.id}: "pytest" → "python -m pytest", così i moduli del progetto sono importabili`);
+      }
+    }
+  }
+  return fixes;
+}
 
 function describe(errors: ErrorObject[] | null | undefined): string[] {
   return (errors ?? []).map(e => {
@@ -63,7 +96,8 @@ function parseYaml(text: string): { data?: unknown; errors: string[] } {
 export function parseBacklog(text: string): Parsed<Backlog> {
   const { data, errors } = parseYaml(text);
   if (errors.length) return { errors };
-  if (!backlogShape(data)) return { errors: describe(backlogShape.errors) };
+  const fixes = autofix(data);
+  if (!backlogShape(data)) return { errors: describe(backlogShape.errors), fixes };
 
   const problems: string[] = [];
   const milestones = data.milestones.map(m => m.id);
@@ -76,10 +110,19 @@ export function parseBacklog(text: string): Parsed<Backlog> {
     for (const d of t.depends_on ?? []) if (!seen.has(d)) problems.push(`${t.id}: dipende da ${d}, che non è un task precedente`);
     for (const c of t.checks) {
       try { if (c.expect) new RegExp(c.expect); } catch { problems.push(`${t.id}: expect non è una regex valida: ${c.expect}`); }
+      // errori di logica visti davvero nei backlog generati dagli LLM
+      if (c.expect && /fail|error|errore|fallit/i.test(c.expect)) {
+        problems.push(`${t.id}: expect "${c.expect}" cerca un fallimento, ma un controllo passa solo se il comando termina con successo`);
+      }
+    }
+    for (const f of t.files ?? []) {
+      if (f.given && /^\s*assert\s+False\b/m.test(f.content ?? '')) {
+        problems.push(`${t.id}: il file fornito ${f.path} contiene "assert False" e non potrà mai passare`);
+      }
     }
     seen.add(t.id);
   }
-  return problems.length ? { errors: problems } : { value: data, errors: [] };
+  return problems.length ? { errors: problems, fixes } : { value: data, errors: [], fixes };
 }
 
 export function parseSolution(text: string, backlog: Backlog): Parsed<Solution> {
@@ -109,6 +152,7 @@ export interface PlannerAnswer {
   backlog?: Backlog;
   solution?: Solution;
   errors: string[];
+  fixes: string[];              // errori di formato corretti automaticamente
 }
 
 /** Risposta di un LLM (interno o incollata): fattibilità + backlog + soluzione opzionale. */
@@ -118,12 +162,13 @@ export function parsePlannerAnswer(text: string): PlannerAnswer {
   const blocks = yamlBlocks(text);
   const backlogText = blocks.find(b => /^project:/m.test(b));
   const solutionText = blocks.find(b => b !== backlogText && /^tasks:/m.test(b));
-  if (!backlogText) return { feasibility, errors: ['Nessun backlog trovato (manca "project:").'] };
+  if (!backlogText) return { feasibility, errors: ['Nessun backlog trovato (manca "project:").'], fixes: [] };
   const b = parseBacklog(backlogText);
-  if (!b.value) return { feasibility, backlogText, solutionText, errors: b.errors };
-  if (!solutionText) return { feasibility, backlogText, backlog: b.value, errors: [] };
+  const fixes = b.fixes ?? [];
+  if (!b.value) return { feasibility, backlogText, solutionText, errors: b.errors, fixes };
+  if (!solutionText) return { feasibility, backlogText, backlog: b.value, errors: [], fixes };
   const s = parseSolution(solutionText, b.value);
-  return { feasibility, backlogText, solutionText, backlog: b.value, solution: s.value, errors: s.errors.map(e => `soluzione: ${e}`) };
+  return { feasibility, backlogText, solutionText, backlog: b.value, solution: s.value, errors: s.errors.map(e => `soluzione: ${e}`), fixes };
 }
 
 export const repairRequest = (errors: string[]) =>

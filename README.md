@@ -15,6 +15,10 @@ Architettura e roadmap: [docs/ARCHITETTURA.md](docs/ARCHITETTURA.md).
 
 Livello di guida (`mocoder.guidance`): `guidato`, `suggerimenti`, `autonomo`.
 
+**Senza IA e senza rete** funziona tutto tranne il tutor: il prompt si incolla in qualsiasi chatbot, la risposta
+si importa dagli appunti (gli errori di formato tipici dei chatbot vengono corretti da soli) e, quando un controllo
+fallisce, il pannello spiega l'errore leggendo l'output di test e compilatore ("Cosa dice l'errore").
+
 ### Con l'IA (opzionale)
 
 Comando **mocoder: Configura l'IA**: Claude (Anthropic), Ollama in locale o qualsiasi API OpenAI-compatibile.

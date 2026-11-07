@@ -418,6 +418,10 @@ async function importBacklog(tutor: Tutor, out: vscode.OutputChannel) {
   }
 
   const a = parsePlannerAnswer(text);
+  if (a.fixes.length) {
+    out.appendLine('--- import: correzioni automatiche di formato');
+    a.fixes.forEach(f => out.appendLine(f));
+  }
   if (!a.backlog || a.errors.length) {
     out.appendLine('--- import: errori');
     a.errors.forEach(e => out.appendLine(e));
@@ -426,6 +430,7 @@ async function importBacklog(tutor: Tutor, out: vscode.OutputChannel) {
     if (fix) await vscode.env.clipboard.writeText(repairRequest(a.errors));
     return;
   }
+  if (a.fixes.length) void vscode.window.showInformationMessage(`Ho corretto da solo ${a.fixes.length} errori di formato del chatbot (dettagli nel pannello Output).`);
   await installBacklog(tutor, root, a.backlogText!, a.solution ? a.solutionText : undefined);
 }
 

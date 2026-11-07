@@ -2,6 +2,7 @@ import type { Backlog, Task } from './core/backlog.ts';
 import type { CheckResult } from './core/checks.ts';
 import type { Progress } from './core/workspace.ts';
 import { statusOf, nextTask } from './core/progress.ts';
+import { diagnose } from './core/diagnose.ts';
 import type { Guidance } from './ai/roles.ts';
 
 export interface Page {
@@ -24,6 +25,9 @@ export interface Page {
 
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
+/** Testo sicuro con i `frammenti` resi come codice. */
+const inlineCode = (s: string) => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>');
 
 const button = (type: string, label: string, attrs = '') => `<button data-type="${type}" ${attrs}>${esc(label)}</button>`;
 
@@ -61,11 +65,20 @@ function taskList(b: Backlog, p: Page) {
 function results(p: Page, b: Backlog) {
   if (p.busy) return '<p class="muted">Verifica in corso…</p>';
   if (!p.results) return '';
-  const rows = p.results.map(r => `
-    <details class="check ${r.ok ? 'ok' : 'ko'}" ${r.ok ? '' : 'open'}>
-      <summary>${r.ok ? '✓' : '✗'} <code>${esc(r.check.run)}</code></summary>
+  const rows = p.results.map(r => {
+    const d = diagnose(r.output);
+    const count = d.tests ? `<span class="muted"> · ${d.tests.passed} test su ${d.tests.passed + d.tests.failed} passano</span>` : '';
+    // consigli offline ricavati dall'output: niente IA, niente rete
+    const tips = !r.ok && d.tips.length
+      ? `<div class="tips"><b>Cosa dice l'errore</b><ul>${d.tips.map(t => `<li><b>${esc(t.title)}</b>: ${inlineCode(t.text)}</li>`).join('')}</ul></div>`
+      : '';
+    return `
+    ${tips}
+    <details class="check ${r.ok ? 'ok' : 'ko'}" ${r.ok || tips ? '' : 'open'}>
+      <summary>${r.ok ? '✓' : '✗'} <code>${esc(r.check.run)}</code>${count}</summary>
       <pre>${esc(r.output.trim() || '(nessun output)')}</pre>
-    </details>`).join('');
+    </details>`;
+  }).join('');
   const allOk = p.results.every(r => r.ok);
   const next = allOk ? nextTask(b, p.progress) : undefined;
   const footer = allOk
@@ -151,6 +164,7 @@ export function renderPage(p: Page): string {
   .muted { color: var(--vscode-descriptionForeground); }
   .goal, .hint { background: var(--vscode-textBlockQuote-background); border-left: 3px solid var(--vscode-textBlockQuote-border); padding: 6px 8px; }
   .hint { margin: 6px 0; } .hint > p:first-of-type { display: inline; }
+  .tips { border-left: 3px solid var(--vscode-editorWarning-foreground); padding: 4px 8px; margin: 6px 0; } .tips ul { margin: 4px 0; padding-left: 18px; }
   .error { border-left: 3px solid var(--vscode-inputValidation-errorBorder); padding: 4px 8px; }
   pre { background: var(--vscode-textCodeBlock-background); padding: 6px; overflow-x: auto; white-space: pre-wrap; font-size: .9em; }
   .check pre { max-height: 220px; overflow-y: auto; }
