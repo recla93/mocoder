@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "mocoder backlog v1",
+  "description": "Percorso guidato per costruire un progetto a mano. Testi per l'utente in italiano, identificatori nel codice in inglese. Il livello di guida (guidato/suggerimenti/autonomo) NON sta qui: è un'impostazione dell'utente.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "project", "title", "summary", "level", "estimate_hours", "stack", "milestones", "tasks"],
+  "properties": {
+    "schema": { "const": 1, "description": "Versione del formato." },
+    "project": { "$ref": "#/$defs/slug", "description": "Nome tecnico del progetto, es. registro-presenze." },
+    "title": { "$ref": "#/$defs/text" },
+    "summary": { "$ref": "#/$defs/text", "description": "Cosa farà il programma finito, in 1-3 frasi." },
+    "level": { "enum": ["principiante", "intermedio", "avanzato"], "description": "Livello di partenza dell'utente per cui è pensato il percorso." },
+    "estimate_hours": { "type": "number", "exclusiveMinimum": 0, "description": "Ore stimate per completare tutto al livello indicato." },
+    "stack": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/text" } },
+    "env": { "$ref": "#/$defs/path", "description": "Opzionale: devcontainer.json o compose file per un ambiente riproducibile." },
+    "milestones": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/milestone" } },
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "description": "In ordine di esecuzione. Un task può dipendere solo da task che lo precedono.",
+      "items": { "$ref": "#/$defs/task" }
+    }
+  },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1 },
+    "slug": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "path": {
+      "type": "string",
+      "description": "Percorso relativo alla radice del progetto, con '/'. Niente '..', niente percorsi assoluti.",
+      "pattern": "^(?!.*\\.\\.)[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$"
+    },
+    "milestone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "goal"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^M[0-9]+$" },
+        "title": { "$ref": "#/$defs/text" },
+        "goal": { "$ref": "#/$defs/text", "description": "Cosa funziona alla fine della milestone." }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "milestone", "title", "goal", "learn", "theory", "hints", "checks"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^T[0-9]+$" },
+        "milestone": { "type": "string", "pattern": "^M[0-9]+$" },
+        "title": { "$ref": "#/$defs/text" },
+        "depends_on": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^T[0-9]+$" }
+        },
+        "goal": { "$ref": "#/$defs/text", "description": "Criterio di accettazione in una frase." },
+        "learn": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Concetti insegnati: chiavi per cercare la teoria nel vault.",
+          "items": { "$ref": "#/$defs/slug" }
+        },
+        "theory": { "$ref": "#/$defs/text", "description": "Markdown. Prima il perché, poi il come, poi gli errori tipici." },
+        "files": { "type": "array", "items": { "$ref": "#/$defs/file" } },
+        "hints": {
+          "type": "array",
+          "minItems": 2,
+          "description": "Dal concetto alla soluzione: l'ultimo è la soluzione completa.",
+          "items": { "$ref": "#/$defs/text" }
+        },
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Eseguiti in ordine dalla radice del progetto. Il task è fatto quando passano tutti.",
+          "items": { "$ref": "#/$defs/check" }
+        },
+        "review": {
+          "type": "array",
+          "description": "Cosa guarda il Reviewer, come in una code review vera.",
+          "items": { "$ref": "#/$defs/text" }
+        }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "description": "given=true: file fornito (test, configurazione), scritto dall'app e da non modificare. Altrimenti: file su cui lavora l'utente; content è lo scheletro iniziale, usato solo se il file non esiste ancora.",
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "content": { "type": "string" },
+        "given": { "type": "boolean" }
+      },
+      "if": { "required": ["given"], "properties": { "given": { "const": true } } },
+      "then": { "required": ["content"] }
+    },
+    "solution": {
+      "description": "File separato (.mocoder/solution.yaml), nascosto all'utente: per ogni task, il contenuto completo dei file che l'utente scrive in quel task, a task finito. Serve a verificare che i check falliscano prima del lavoro e passino dopo.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "tasks"],
+      "properties": {
+        "schema": { "const": 1 },
+        "tasks": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "pattern": "^T[0-9]+$" },
+          "additionalProperties": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "content"],
+              "properties": {
+                "path": { "$ref": "#/$defs/path" },
+                "content": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run"],
+      "properties": {
+        "run": { "$ref": "#/$defs/text", "description": "Un solo comando, senza && né pipe, che funzioni su Windows, macOS e Linux. Stdin chiuso." },
+        "expect": { "$ref": "#/$defs/text", "description": "Opzionale: regex che deve comparire nell'output." }
+      }
+    }
+  }
+}

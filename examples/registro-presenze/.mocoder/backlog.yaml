@@ -1,0 +1,1064 @@
+schema: 1
+project: registro-presenze
+title: Registro presenze
+summary: >
+  Un programma a riga di comando per registrare studenti e presenze di una classe,
+  con salvataggio su file. Costruito passo passo con test automatici, come in un team vero.
+level: principiante
+estimate_hours: 10
+stack: [java-21, maven, junit-5]
+
+milestones:
+  - id: M1
+    title: Fondamenta e dominio
+    goal: Studenti, presenze e registro modellati in Java, coperti da test che passano.
+  - id: M2
+    title: Persistenza
+    goal: Il registro si salva su file e si ricarica senza perdere dati.
+  - id: M3
+    title: Interfaccia a riga di comando
+    goal: Un utente usa il registro da terminale e i dati restano tra un avvio e l'altro.
+
+tasks:
+  # ---------------------------------------------------------------- M1
+  - id: T01
+    milestone: M1
+    title: Il progetto Maven e il primo main
+    goal: Il progetto compila e stampa "Registro presenze".
+    learn: [maven, struttura-progetto, package, metodo-main, git]
+    theory: |
+      **Perché Maven.** Un progetto Java vero non si compila a mano file per file: un
+      *build tool* scarica le librerie, compila, esegue i test. Maven è lo standard più diffuso.
+      Il file `pom.xml` descrive il progetto: nome, versione di Java, dipendenze (qui JUnit 5 per i test).
+
+      **La struttura standard.** Maven si aspetta:
+      - `src/main/java` → il codice del programma
+      - `src/test/java` → i test
+      - `target/` → quello che genera Maven (non va mai in git, per questo c'è `.gitignore`)
+
+      **Package = cartelle.** La classe `it.presenze.App` deve stare in
+      `src/main/java/it/presenze/App.java` e iniziare con `package it.presenze;`.
+      Se cartella e package non coincidono, il compilatore si lamenta.
+
+      **Cosa ti serve.** JDK 21 e Maven installati (`java -version`, `mvn -v` devono rispondere).
+
+      **Errori tipici:** nome del file diverso dal nome della classe pubblica; `package` dimenticato;
+      eseguire `mvn` fuori dalla cartella che contiene `pom.xml`.
+
+      Quando il controllo passa, mocoder fa il tuo primo commit: ogni task completato è un commit.
+    files:
+      - path: pom.xml
+        given: true
+        content: |
+          <?xml version="1.0" encoding="UTF-8"?>
+          <project xmlns="http://maven.apache.org/POM/4.0.0"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+            <modelVersion>4.0.0</modelVersion>
+
+            <groupId>it.presenze</groupId>
+            <artifactId>registro-presenze</artifactId>
+            <version>0.1.0</version>
+
+            <properties>
+              <maven.compiler.release>21</maven.compiler.release>
+              <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+            </properties>
+
+            <dependencies>
+              <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>5.12.2</version>
+                <scope>test</scope>
+              </dependency>
+            </dependencies>
+
+            <build>
+              <plugins>
+                <plugin>
+                  <artifactId>maven-compiler-plugin</artifactId>
+                  <version>3.14.1</version>
+                </plugin>
+                <plugin>
+                  <artifactId>maven-surefire-plugin</artifactId>
+                  <version>3.5.5</version>
+                </plugin>
+              </plugins>
+            </build>
+          </project>
+      - path: .gitignore
+        given: true
+        content: |
+          target/
+          *.csv
+      - path: src/main/java/it/presenze/App.java
+    hints:
+      - "Un programma Java parte da `public static void main(String[] args)` dentro una classe pubblica."
+      - "Il file inizia con `package it.presenze;`, poi `public class App { ... }`. Per stampare: `System.out.println(...)`."
+      - |
+        ```java
+        package it.presenze;
+
+        public class App {
+            public static void main(String[] args) {
+                System.out.println("Registro presenze");
+            }
+        }
+        ```
+    checks:
+      - run: mvn -q compile
+      - run: java -cp target/classes it.presenze.App
+        expect: Registro presenze
+    review:
+      - Il package corrisponde alla cartella
+      - Nessun file generato (target/) aggiunto a git
+
+  - id: T02
+    milestone: M1
+    title: Lo studente
+    depends_on: [T01]
+    goal: Uno Student si crea solo con id, nome ed email validi.
+    learn: [java-record, validazione, eccezioni, unit-test]
+    theory: |
+      **Perché un record.** Uno studente è un *dato*: id, nome, email. Non cambia dopo la creazione.
+      Java 21 ha i `record`: una riga ti dà costruttore, getter (`id()`, `fullName()`, `email()`),
+      `equals`, `hashCode` e `toString`.
+
+      **Validare all'ingresso.** Un oggetto non valido non deve poter esistere. Nel *compact constructor*
+      del record controlli i dati e, se sono sbagliati, lanci `IllegalArgumentException`.
+      Così il resto del programma può fidarsi di ogni `Student`.
+
+      Regole:
+      - `id` e `fullName` non nulli e non vuoti (`isBlank()`)
+      - `email` non nulla, con una sola `@`, testo prima, e un punto dopo la `@`
+
+      **Leggi il test.** `StudentTest` è la specifica: ogni metodo `@Test` descrive un comportamento.
+      `assertThrows` verifica che venga lanciata un'eccezione. Leggere i test è il primo modo per
+      capire cosa vuole il codice, anche nei team veri.
+
+      **Errori tipici:** controllare `isBlank()` prima di `null` (NullPointerException);
+      validare l'email solo con `contains("@")`.
+    files:
+      - path: src/main/java/it/presenze/model/Student.java
+        content: |
+          package it.presenze.model;
+
+          public record Student(String id, String fullName, String email) {
+              // TODO: aggiungi il compact constructor con la validazione
+          }
+      - path: src/test/java/it/presenze/model/StudentTest.java
+        given: true
+        content: |
+          package it.presenze.model;
+
+          import org.junit.jupiter.api.Test;
+
+          import static org.junit.jupiter.api.Assertions.*;
+
+          class StudentTest {
+
+              @Test
+              void createsValidStudent() {
+                  Student s = new Student("s1", "Mario Rossi", "mario.rossi@scuola.it");
+                  assertEquals("s1", s.id());
+                  assertEquals("Mario Rossi", s.fullName());
+                  assertEquals("mario.rossi@scuola.it", s.email());
+              }
+
+              @Test
+              void sameDataMeansEqualStudents() {
+                  assertEquals(new Student("s1", "Mario Rossi", "m@x.it"), new Student("s1", "Mario Rossi", "m@x.it"));
+              }
+
+              @Test
+              void rejectsBlankId() {
+                  assertThrows(IllegalArgumentException.class, () -> new Student(" ", "Mario Rossi", "m@x.it"));
+              }
+
+              @Test
+              void rejectsMissingName() {
+                  assertThrows(IllegalArgumentException.class, () -> new Student("s1", null, "m@x.it"));
+                  assertThrows(IllegalArgumentException.class, () -> new Student("s1", "", "m@x.it"));
+              }
+
+              @Test
+              void rejectsInvalidEmail() {
+                  assertThrows(IllegalArgumentException.class, () -> new Student("s1", "Mario Rossi", null));
+                  assertThrows(IllegalArgumentException.class, () -> new Student("s1", "Mario Rossi", "mario.rossi"));
+                  assertThrows(IllegalArgumentException.class, () -> new Student("s1", "Mario Rossi", "mario@"));
+                  assertThrows(IllegalArgumentException.class, () -> new Student("s1", "Mario Rossi", "@scuola.it"));
+                  assertThrows(IllegalArgumentException.class, () -> new Student("s1", "Mario Rossi", "a@b@scuola.it"));
+              }
+          }
+    hints:
+      - "Il compact constructor si scrive `public Student { ... }`, senza parentesi tonde: i parametri sono già disponibili."
+      - "Per l'email: `int at = email.indexOf('@')`. Valida se `at > 0`, se `at == email.lastIndexOf('@')` e se `email.substring(at).contains(\".\")`."
+      - |
+        ```java
+        public record Student(String id, String fullName, String email) {
+            public Student {
+                if (id == null || id.isBlank()) throw new IllegalArgumentException("id obbligatorio");
+                if (fullName == null || fullName.isBlank()) throw new IllegalArgumentException("nome obbligatorio");
+                if (email == null) throw new IllegalArgumentException("email obbligatoria");
+                int at = email.indexOf('@');
+                if (at <= 0 || at != email.lastIndexOf('@') || !email.substring(at).contains("."))
+                    throw new IllegalArgumentException("email non valida: " + email);
+            }
+        }
+        ```
+    checks:
+      - run: mvn -q test -Dtest=StudentTest
+    review:
+      - I messaggi di errore dicono quale campo è sbagliato
+      - Il controllo di null viene prima di ogni metodo chiamato sul valore
+
+  - id: T03
+    milestone: M1
+    title: Stato e presenza
+    depends_on: [T02]
+    goal: Esistono gli stati PRESENT, ABSENT, LATE e il record Attendance che rifiuta valori mancanti.
+    learn: [enum, java-time, null-safety]
+    theory: |
+      **Enum: un insieme chiuso di valori.** Lo stato di una presenza può essere solo
+      presente, assente o in ritardo. Una `String` accetterebbe anche "assnete"; un `enum` no.
+      Crea `AttendanceStatus` con i valori `PRESENT`, `ABSENT`, `LATE` (in quest'ordine).
+
+      **Date vere, non stringhe.** Per i giorni si usa `java.time.LocalDate`: una data senza ora
+      né fuso orario. `LocalDate.of(2026, 11, 7)` o `LocalDate.parse("2026-11-07")`.
+
+      **Il record `Attendance`.** Tre componenti: `String studentId`, `LocalDate date`,
+      `AttendanceStatus status`. Tutti obbligatori: nel compact constructor usa
+      `Objects.requireNonNull(valore, "messaggio")`, che lancia `NullPointerException`.
+
+      Questa volta crei tu i due file, nel package `it.presenze.model`:
+      `AttendanceStatus.java` e `Attendance.java`. Il test non compilerà finché non esistono:
+      è normale, leggi l'errore del compilatore e segui il nome che manca.
+
+      **Errori tipici:** usare `java.util.Date` (vecchia API); dimenticare `import java.time.LocalDate`.
+    files:
+      - path: src/main/java/it/presenze/model/AttendanceStatus.java
+      - path: src/main/java/it/presenze/model/Attendance.java
+      - path: src/test/java/it/presenze/model/AttendanceTest.java
+        given: true
+        content: |
+          package it.presenze.model;
+
+          import org.junit.jupiter.api.Test;
+
+          import java.time.LocalDate;
+
+          import static org.junit.jupiter.api.Assertions.*;
+
+          class AttendanceTest {
+
+              private static final LocalDate DAY = LocalDate.of(2026, 11, 7);
+
+              @Test
+              void hasThreeStatusesInOrder() {
+                  assertArrayEquals(
+                          new AttendanceStatus[]{AttendanceStatus.PRESENT, AttendanceStatus.ABSENT, AttendanceStatus.LATE},
+                          AttendanceStatus.values());
+              }
+
+              @Test
+              void storesValues() {
+                  Attendance a = new Attendance("s1", DAY, AttendanceStatus.LATE);
+                  assertEquals("s1", a.studentId());
+                  assertEquals(DAY, a.date());
+                  assertEquals(AttendanceStatus.LATE, a.status());
+              }
+
+              @Test
+              void rejectsMissingValues() {
+                  assertThrows(NullPointerException.class, () -> new Attendance(null, DAY, AttendanceStatus.PRESENT));
+                  assertThrows(NullPointerException.class, () -> new Attendance("s1", null, AttendanceStatus.PRESENT));
+                  assertThrows(NullPointerException.class, () -> new Attendance("s1", DAY, null));
+              }
+          }
+    hints:
+      - "Un enum si dichiara come una classe: `public enum AttendanceStatus { ... }` con i valori separati da virgola."
+      - "Nel record: `public Attendance { Objects.requireNonNull(studentId, \"studentId\"); ... }` e `import java.util.Objects;`."
+      - |
+        ```java
+        // AttendanceStatus.java
+        package it.presenze.model;
+
+        public enum AttendanceStatus { PRESENT, ABSENT, LATE }
+
+        // Attendance.java
+        package it.presenze.model;
+
+        import java.time.LocalDate;
+        import java.util.Objects;
+
+        public record Attendance(String studentId, LocalDate date, AttendanceStatus status) {
+            public Attendance {
+                Objects.requireNonNull(studentId, "studentId");
+                Objects.requireNonNull(date, "date");
+                Objects.requireNonNull(status, "status");
+            }
+        }
+        ```
+    checks:
+      - run: mvn -q test -Dtest=AttendanceTest
+    review:
+      - Nessuna data rappresentata come String
+      - Un file per tipo pubblico
+
+  - id: T04
+    milestone: M1
+    title: Il registro
+    depends_on: [T03]
+    goal: Il Register gestisce studenti e presenze e protegge i propri dati.
+    learn: [collezioni-map, optional, incapsulamento]
+    theory: |
+      **Una classe che custodisce dati.** `Register` è il cuore del programma: tiene studenti e
+      presenze e decide le regole. Gli altri lo usano solo attraverso i suoi metodi: è
+      l'*incapsulamento*. Nessuno deve poter modificare le sue liste dall'esterno.
+
+      **Map per cercare in fretta.** Per trovare uno studente dal suo id si usa una `Map<String, Student>`.
+      `LinkedHashMap` ricorda l'ordine di inserimento, utile per stampare e salvare in modo stabile.
+      Per le presenze: una mappa da id studente a una mappa data → stato.
+
+      **Le regole:**
+      - `addStudent(Student)`: id già presente → `IllegalArgumentException`
+      - `mark(studentId, date, status)`: studente sconosciuto → `IllegalArgumentException`; segnare
+        di nuovo lo stesso giorno sostituisce lo stato precedente
+      - `statusOf(studentId, date)`: restituisce `Optional<AttendanceStatus>`, vuoto se non c'è nulla
+      - `students()` e `attendances()`: liste **non modificabili** (`List.copyOf`, `.toList()`)
+
+      **Perché Optional.** Restituire `null` obbliga chi chiama a ricordarsi di controllarlo.
+      `Optional` rende esplicito che il valore può mancare.
+
+      **Errori tipici:** restituire direttamente la collezione interna; dimenticare di controllare
+      che lo studente esista prima di segnare.
+    files:
+      - path: src/main/java/it/presenze/model/Register.java
+        content: |
+          package it.presenze.model;
+
+          import java.time.LocalDate;
+          import java.util.List;
+          import java.util.Optional;
+
+          public class Register {
+
+              // TODO: i campi che contengono studenti e presenze
+
+              public void addStudent(Student student) {
+                  throw new UnsupportedOperationException("TODO");
+              }
+
+              public void mark(String studentId, LocalDate date, AttendanceStatus status) {
+                  throw new UnsupportedOperationException("TODO");
+              }
+
+              public Optional<AttendanceStatus> statusOf(String studentId, LocalDate date) {
+                  throw new UnsupportedOperationException("TODO");
+              }
+
+              public List<Student> students() {
+                  throw new UnsupportedOperationException("TODO");
+              }
+
+              public List<Attendance> attendances() {
+                  throw new UnsupportedOperationException("TODO");
+              }
+          }
+      - path: src/test/java/it/presenze/model/RegisterTest.java
+        given: true
+        content: |
+          package it.presenze.model;
+
+          import org.junit.jupiter.api.BeforeEach;
+          import org.junit.jupiter.api.Test;
+
+          import java.time.LocalDate;
+          import java.util.List;
+          import java.util.Optional;
+
+          import static org.junit.jupiter.api.Assertions.*;
+
+          class RegisterTest {
+
+              private static final LocalDate DAY = LocalDate.of(2026, 11, 7);
+              private Register register;
+
+              @BeforeEach
+              void setUp() {
+                  register = new Register();
+                  register.addStudent(new Student("s1", "Mario Rossi", "mario@scuola.it"));
+              }
+
+              @Test
+              void rejectsDuplicateStudent() {
+                  assertThrows(IllegalArgumentException.class,
+                          () -> register.addStudent(new Student("s1", "Altro Nome", "altro@scuola.it")));
+              }
+
+              @Test
+              void marksAndReadsStatus() {
+                  register.mark("s1", DAY, AttendanceStatus.PRESENT);
+                  assertEquals(Optional.of(AttendanceStatus.PRESENT), register.statusOf("s1", DAY));
+              }
+
+              @Test
+              void noMarkMeansEmpty() {
+                  assertTrue(register.statusOf("s1", DAY).isEmpty());
+              }
+
+              @Test
+              void secondMarkSameDayReplacesFirst() {
+                  register.mark("s1", DAY, AttendanceStatus.PRESENT);
+                  register.mark("s1", DAY, AttendanceStatus.LATE);
+                  assertEquals(Optional.of(AttendanceStatus.LATE), register.statusOf("s1", DAY));
+                  assertEquals(1, register.attendances().size());
+              }
+
+              @Test
+              void rejectsUnknownStudent() {
+                  assertThrows(IllegalArgumentException.class, () -> register.mark("x", DAY, AttendanceStatus.ABSENT));
+              }
+
+              @Test
+              void listsAreReadOnly() {
+                  assertEquals(1, register.students().size());
+                  assertThrows(UnsupportedOperationException.class,
+                          () -> register.students().add(new Student("s2", "Anna Bianchi", "anna@scuola.it")));
+                  assertThrows(UnsupportedOperationException.class,
+                          () -> register.attendances().add(new Attendance("s1", DAY, AttendanceStatus.ABSENT)));
+              }
+
+              @Test
+              void listsAttendances() {
+                  register.mark("s1", DAY, AttendanceStatus.ABSENT);
+                  assertEquals(List.of(new Attendance("s1", DAY, AttendanceStatus.ABSENT)), register.attendances());
+              }
+          }
+    hints:
+      - "Due campi: `Map<String, Student> students` e `Map<String, Map<LocalDate, AttendanceStatus>> marks`, entrambi `LinkedHashMap`."
+      - "`putIfAbsent` restituisce il valore già presente (o null): ti dice in una riga se l'id era duplicato. Per le presenze: `marks.computeIfAbsent(id, k -> new TreeMap<>()).put(date, status)`."
+      - |
+        ```java
+        private final Map<String, Student> students = new LinkedHashMap<>();
+        private final Map<String, Map<LocalDate, AttendanceStatus>> marks = new LinkedHashMap<>();
+
+        public void addStudent(Student student) {
+            if (students.putIfAbsent(student.id(), student) != null)
+                throw new IllegalArgumentException("studente già presente: " + student.id());
+        }
+
+        public void mark(String studentId, LocalDate date, AttendanceStatus status) {
+            if (!students.containsKey(studentId))
+                throw new IllegalArgumentException("studente sconosciuto: " + studentId);
+            marks.computeIfAbsent(studentId, k -> new TreeMap<>()).put(date, status);
+        }
+
+        public Optional<AttendanceStatus> statusOf(String studentId, LocalDate date) {
+            return Optional.ofNullable(marks.getOrDefault(studentId, Map.of()).get(date));
+        }
+
+        public List<Student> students() {
+            return List.copyOf(students.values());
+        }
+
+        public List<Attendance> attendances() {
+            return marks.entrySet().stream()
+                    .flatMap(e -> e.getValue().entrySet().stream()
+                            .map(d -> new Attendance(e.getKey(), d.getKey(), d.getValue())))
+                    .toList();
+        }
+        ```
+    checks:
+      - run: mvn -q test -Dtest=RegisterTest
+    review:
+      - Nessuna collezione interna esposta
+      - I campi sono private final
+
+  - id: T05
+    milestone: M1
+    title: Contare le assenze, test prima
+    depends_on: [T04]
+    goal: Register.absences(studentId) conta solo le assenze, e l'hai guidato tu con un test.
+    learn: [tdd, stream]
+    theory: |
+      **Test-Driven Development.** Nei team seri spesso il test si scrive *prima* del codice:
+      1. **Rosso**: scrivi un test che descrive cosa vuoi e lo vedi fallire.
+      2. **Verde**: scrivi il minimo codice che lo fa passare.
+      3. **Refactor**: migliori il codice con i test che ti proteggono.
+
+      Così pensi a *cosa* deve fare il metodo prima di pensare a *come*.
+
+      **Il comportamento da ottenere:** `long absences(String studentId)` in `Register`
+      - conta solo gli `ABSENT` (i `LATE` non sono assenze)
+      - studente senza registrazioni → `0`
+      - studente sconosciuto → `IllegalArgumentException`
+
+      **Come procedere:** apri `RegisterStatsTest`, sostituisci il `fail(...)` con un test vero
+      (prepara un registro, segna 2 assenze e 1 ritardo, verifica che il risultato sia 2).
+      Poi aggiungi il metodo. Il controllo esegue il tuo test **e** il nostro `AbsencesTest`.
+
+      **Stream.** `values().stream().filter(...).count()` conta gli elementi che soddisfano una condizione.
+
+      **Errori tipici:** scrivere il codice e poi un test che "passa per forza"; contare anche i ritardi.
+    files:
+      - path: src/test/java/it/presenze/model/RegisterStatsTest.java
+        content: |
+          package it.presenze.model;
+
+          import org.junit.jupiter.api.Test;
+
+          import static org.junit.jupiter.api.Assertions.*;
+
+          class RegisterStatsTest {
+
+              @Test
+              void countsOnlyAbsences() {
+                  // TODO: crea un Register, aggiungi uno studente, segna 2 ABSENT e 1 LATE
+                  //       in giorni diversi, verifica che absences(...) restituisca 2
+                  fail("Scrivi il test prima del codice");
+              }
+          }
+      - path: src/main/java/it/presenze/model/Register.java
+      - path: src/test/java/it/presenze/model/AbsencesTest.java
+        given: true
+        content: |
+          package it.presenze.model;
+
+          import org.junit.jupiter.api.BeforeEach;
+          import org.junit.jupiter.api.Test;
+
+          import java.time.LocalDate;
+
+          import static org.junit.jupiter.api.Assertions.*;
+
+          class AbsencesTest {
+
+              private Register register;
+
+              @BeforeEach
+              void setUp() {
+                  register = new Register();
+                  register.addStudent(new Student("s1", "Mario Rossi", "mario@scuola.it"));
+              }
+
+              @Test
+              void countsAbsencesOnly() {
+                  register.mark("s1", LocalDate.of(2026, 11, 2), AttendanceStatus.ABSENT);
+                  register.mark("s1", LocalDate.of(2026, 11, 3), AttendanceStatus.LATE);
+                  register.mark("s1", LocalDate.of(2026, 11, 4), AttendanceStatus.PRESENT);
+                  register.mark("s1", LocalDate.of(2026, 11, 5), AttendanceStatus.ABSENT);
+                  assertEquals(2, register.absences("s1"));
+              }
+
+              @Test
+              void zeroWhenNoMarks() {
+                  assertEquals(0, register.absences("s1"));
+              }
+
+              @Test
+              void unknownStudentIsAnError() {
+                  assertThrows(IllegalArgumentException.class, () -> register.absences("x"));
+              }
+          }
+    hints:
+      - "Prima il test: `Register r = new Register(); r.addStudent(...); r.mark(...)` tre volte, poi `assertEquals(2, r.absences(\"s1\"))`. Deve fallire (non compila: il metodo non esiste ancora)."
+      - "Nel metodo: controlla che lo studente esista come in `mark`, poi `marks.getOrDefault(id, Map.of()).values().stream().filter(s -> s == AttendanceStatus.ABSENT).count()`."
+      - |
+        ```java
+        // RegisterStatsTest
+        @Test
+        void countsOnlyAbsences() {
+            Register r = new Register();
+            r.addStudent(new Student("s1", "Mario Rossi", "mario@scuola.it"));
+            r.mark("s1", LocalDate.of(2026, 11, 2), AttendanceStatus.ABSENT);
+            r.mark("s1", LocalDate.of(2026, 11, 3), AttendanceStatus.ABSENT);
+            r.mark("s1", LocalDate.of(2026, 11, 4), AttendanceStatus.LATE);
+            assertEquals(2, r.absences("s1"));
+        }
+
+        // Register
+        public long absences(String studentId) {
+            if (!students.containsKey(studentId))
+                throw new IllegalArgumentException("studente sconosciuto: " + studentId);
+            return marks.getOrDefault(studentId, Map.of()).values().stream()
+                    .filter(s -> s == AttendanceStatus.ABSENT)
+                    .count();
+        }
+        ```
+    checks:
+      - run: mvn -q test
+    review:
+      - Il tuo test fallirebbe se absences contasse anche i ritardi
+      - Il controllo "studente sconosciuto" non è copiato in due metodi (meglio un metodo privato comune)
+
+  # ---------------------------------------------------------------- M2
+  - id: T06
+    milestone: M2
+    title: Salvare e ricaricare su file
+    depends_on: [T05]
+    goal: CsvStore salva il registro su file e lo ricarica identico.
+    learn: [file-io, formato-csv, eccezioni-checked, round-trip-test]
+    theory: |
+      **Persistenza.** Finora tutto vive in memoria e sparisce alla chiusura. Salviamo su un file
+      di testo, una riga per record, campi separati da `;`:
+      ```
+      S;s1;Mario Rossi;mario@scuola.it
+      A;s1;2026-11-07;ABSENT
+      ```
+      `S` = studente, `A` = presenza. Gli studenti vanno scritti **prima** delle presenze: al
+      caricamento `mark` richiede che lo studente esista già.
+
+      **La classe da creare:** `it.presenze.store.CsvStore`, con due metodi statici:
+      - `static void save(Register register, Path file) throws IOException`
+      - `static Register load(Path file) throws IOException`
+
+      Regole:
+      - file inesistente → registro vuoto (primo avvio)
+      - un campo che contiene `;` → `IllegalArgumentException` **prima** di scrivere qualsiasi cosa
+      - riga con tipo sconosciuto o numero di campi diverso da 4 → `IOException` con la riga nel messaggio
+
+      **API moderne.** `Files.write(path, righe)` e `Files.readAllLines(path)` di `java.nio.file`
+      gestiscono apertura e chiusura del file per te.
+
+      **Test di round-trip.** Il modo migliore per testare salvataggio e caricamento: salvi,
+      ricarichi, confronti. `@TempDir` di JUnit dà una cartella temporanea pulita per ogni test.
+
+      **Errori tipici:** `split(";")` senza limite elimina i campi vuoti finali; non chiudere i file.
+    files:
+      - path: src/main/java/it/presenze/store/CsvStore.java
+      - path: src/test/java/it/presenze/store/CsvStoreTest.java
+        given: true
+        content: |
+          package it.presenze.store;
+
+          import it.presenze.model.AttendanceStatus;
+          import it.presenze.model.Register;
+          import it.presenze.model.Student;
+          import org.junit.jupiter.api.Test;
+          import org.junit.jupiter.api.io.TempDir;
+
+          import java.io.IOException;
+          import java.nio.file.Files;
+          import java.nio.file.Path;
+          import java.time.LocalDate;
+
+          import static org.junit.jupiter.api.Assertions.*;
+
+          class CsvStoreTest {
+
+              private static final LocalDate DAY = LocalDate.of(2026, 11, 7);
+
+              @TempDir
+              Path dir;
+
+              @Test
+              void missingFileGivesEmptyRegister() throws IOException {
+                  Register loaded = CsvStore.load(dir.resolve("nope.csv"));
+                  assertTrue(loaded.students().isEmpty());
+                  assertTrue(loaded.attendances().isEmpty());
+              }
+
+              @Test
+              void saveThenLoadKeepsEverything() throws IOException {
+                  Register register = new Register();
+                  register.addStudent(new Student("s1", "Mario Rossi", "mario@scuola.it"));
+                  register.addStudent(new Student("s2", "Anna Bianchi", "anna@scuola.it"));
+                  register.mark("s1", DAY, AttendanceStatus.ABSENT);
+                  register.mark("s2", DAY, AttendanceStatus.LATE);
+                  Path file = dir.resolve("presenze.csv");
+
+                  CsvStore.save(register, file);
+                  Register loaded = CsvStore.load(file);
+
+                  assertEquals(register.students(), loaded.students());
+                  assertEquals(register.attendances(), loaded.attendances());
+              }
+
+              @Test
+              void rejectsSemicolonWithoutWriting() {
+                  Register register = new Register();
+                  register.addStudent(new Student("s1", "Rossi; Mario", "mario@scuola.it"));
+                  Path file = dir.resolve("presenze.csv");
+
+                  assertThrows(IllegalArgumentException.class, () -> CsvStore.save(register, file));
+                  assertFalse(Files.exists(file));
+              }
+
+              @Test
+              void corruptLineIsAnError() throws IOException {
+                  Path file = dir.resolve("presenze.csv");
+                  Files.writeString(file, "S;s1;Mario Rossi\n");
+                  assertThrows(IOException.class, () -> CsvStore.load(file));
+
+                  Files.writeString(file, "X;s1;Mario Rossi;mario@scuola.it\n");
+                  assertThrows(IOException.class, () -> CsvStore.load(file));
+              }
+          }
+    hints:
+      - "Costruisci prima tutte le righe in una `List<String>` (studenti, poi presenze) e solo alla fine chiama `Files.write`: se un campo è invalido non hai scritto nulla."
+      - "Al caricamento: `line.split(\";\", -1)`, controlla che ci siano 4 parti, poi `switch (parts[0])` con `case \"S\"` e `case \"A\"`; `LocalDate.parse` e `AttendanceStatus.valueOf` ricostruiscono i valori."
+      - |
+        ```java
+        package it.presenze.store;
+
+        import it.presenze.model.*;
+
+        import java.io.IOException;
+        import java.nio.file.Files;
+        import java.nio.file.Path;
+        import java.time.LocalDate;
+        import java.util.ArrayList;
+        import java.util.List;
+
+        public final class CsvStore {
+
+            private CsvStore() {
+            }
+
+            public static void save(Register register, Path file) throws IOException {
+                List<String> lines = new ArrayList<>();
+                for (Student s : register.students())
+                    lines.add(join("S", s.id(), s.fullName(), s.email()));
+                for (Attendance a : register.attendances())
+                    lines.add(join("A", a.studentId(), a.date().toString(), a.status().name()));
+                Files.write(file, lines);
+            }
+
+            public static Register load(Path file) throws IOException {
+                Register register = new Register();
+                if (Files.notExists(file)) return register;
+                for (String line : Files.readAllLines(file)) {
+                    if (line.isBlank()) continue;
+                    String[] p = line.split(";", -1);
+                    if (p.length != 4) throw new IOException("riga non valida: " + line);
+                    switch (p[0]) {
+                        case "S" -> register.addStudent(new Student(p[1], p[2], p[3]));
+                        case "A" -> register.mark(p[1], LocalDate.parse(p[2]), AttendanceStatus.valueOf(p[3]));
+                        default -> throw new IOException("riga non valida: " + line);
+                    }
+                }
+                return register;
+            }
+
+            private static String join(String... fields) {
+                for (String f : fields)
+                    if (f.contains(";")) throw new IllegalArgumentException("';' non ammesso: " + f);
+                return String.join(";", fields);
+            }
+        }
+        ```
+    checks:
+      - run: mvn -q test -Dtest=CsvStoreTest
+    review:
+      - Nessuna scrittura parziale se i dati non sono validi
+      - I messaggi di errore contengono la riga problematica
+
+  # ---------------------------------------------------------------- M3
+  - id: T07
+    milestone: M3
+    title: I comandi
+    depends_on: [T06]
+    goal: Cli trasforma una riga di testo in un'azione sul registro e restituisce la risposta.
+    learn: [parsing-comandi, switch-expression, separazione-io-logica, gestione-errori]
+    theory: |
+      **Separare logica e input/output.** Leggere dalla tastiera e stampare è difficile da testare.
+      Per questo la classe `it.presenze.cli.Cli` non legge né stampa: riceve una riga e
+      **restituisce** la risposta come `String`. Il ciclo di lettura arriverà nel prossimo task.
+
+      **API:** `new Cli(Register register)` e `String execute(String line)`.
+
+      | Comando | Risposta |
+      |---|---|
+      | `add <id> <email> <nome completo>` | `Aggiunto <id>` |
+      | `mark <id> <aaaa-mm-gg> <stato>` (stato senza distinguere maiuscole) | `Segnato <id> <data> <STATO>` |
+      | `status <id> <aaaa-mm-gg>` | `PRESENT` / `ABSENT` / `LATE` oppure `Nessuna registrazione` |
+      | `absences <id>` | il numero, es. `2` |
+      | `list` | una riga `id - nome` per studente, oppure `Nessuno studente` |
+      | `help` | l'elenco dei comandi |
+      | riga vuota | stringa vuota |
+      | altro | `Comando sconosciuto: <comando>. Scrivi help.` |
+
+      **Gli errori non fanno crashare il programma.** Argomenti sbagliati, data illeggibile,
+      studente sconosciuto: rispondi `Errore: <messaggio>`. Cattura `IllegalArgumentException`
+      e `DateTimeException`, non `Exception` (nasconderesti i bug veri).
+
+      **Switch expression.** `return switch (cmd) { case "add" -> ...; default -> ...; };`
+      Con `yield` restituisci un valore da un blocco `{ }`.
+
+      **Errori tipici:** `split(" ")` si rompe con due spazi (usa `"\\s+"`); il nome completo
+      contiene spazi, quindi va per ultimo e serve `split(regex, 4)`.
+    files:
+      - path: src/main/java/it/presenze/cli/Cli.java
+      - path: src/test/java/it/presenze/cli/CliTest.java
+        given: true
+        content: |
+          package it.presenze.cli;
+
+          import it.presenze.model.Register;
+          import org.junit.jupiter.api.BeforeEach;
+          import org.junit.jupiter.api.Test;
+
+          import static org.junit.jupiter.api.Assertions.*;
+
+          class CliTest {
+
+              private Cli cli;
+
+              @BeforeEach
+              void setUp() {
+                  cli = new Cli(new Register());
+              }
+
+              @Test
+              void addsAndListsStudents() {
+                  assertEquals("Aggiunto s1", cli.execute("add s1 mario@scuola.it Mario Rossi"));
+                  assertEquals("Aggiunto s2", cli.execute("add  s2  anna@scuola.it  Anna Bianchi"));
+                  assertEquals("s1 - Mario Rossi\ns2 - Anna Bianchi", cli.execute("list"));
+              }
+
+              @Test
+              void emptyList() {
+                  assertEquals("Nessuno studente", cli.execute("list"));
+              }
+
+              @Test
+              void marksAndShowsStatus() {
+                  cli.execute("add s1 mario@scuola.it Mario Rossi");
+                  assertEquals("Segnato s1 2026-11-07 ABSENT", cli.execute("mark s1 2026-11-07 absent"));
+                  assertEquals("ABSENT", cli.execute("status s1 2026-11-07"));
+                  assertEquals("Nessuna registrazione", cli.execute("status s1 2026-11-08"));
+                  assertEquals("1", cli.execute("absences s1"));
+              }
+
+              @Test
+              void errorsAreAnswersNotCrashes() {
+                  assertTrue(cli.execute("mark s9 2026-11-07 PRESENT").startsWith("Errore:"));
+                  cli.execute("add s1 mario@scuola.it Mario Rossi");
+                  assertTrue(cli.execute("add s1 mario@scuola.it Mario Rossi").startsWith("Errore:"));
+                  assertTrue(cli.execute("mark s1 07/11/2026 PRESENT").startsWith("Errore:"));
+                  assertTrue(cli.execute("mark s1 2026-11-07 MALATO").startsWith("Errore:"));
+                  assertTrue(cli.execute("mark s1").startsWith("Errore:"));
+                  assertTrue(cli.execute("add s2 non-una-email Anna").startsWith("Errore:"));
+              }
+
+              @Test
+              void unknownCommandAndBlankLine() {
+                  assertEquals("Comando sconosciuto: vola. Scrivi help.", cli.execute("vola"));
+                  assertEquals("", cli.execute("   "));
+              }
+
+              @Test
+              void helpListsCommands() {
+                  String help = cli.execute("help");
+                  for (String cmd : new String[]{"add", "mark", "status", "absences", "list"})
+                      assertTrue(help.contains(cmd), "manca " + cmd);
+              }
+          }
+    hints:
+      - "`String[] p = line.trim().split(\"\\\\s+\", 4);` e poi `switch (p[0])`. Controlla `p.length` per ogni comando prima di usare gli argomenti."
+      - "Per lo stato: `AttendanceStatus.valueOf(p[3].toUpperCase())` lancia `IllegalArgumentException` se il valore non esiste. Tutto il `switch` sta dentro un `try` con `catch (IllegalArgumentException | DateTimeException e)`."
+      - |
+        ```java
+        package it.presenze.cli;
+
+        import it.presenze.model.AttendanceStatus;
+        import it.presenze.model.Register;
+        import it.presenze.model.Student;
+
+        import java.time.DateTimeException;
+        import java.time.LocalDate;
+        import java.util.stream.Collectors;
+
+        public class Cli {
+
+            private static final String HELP = """
+                    Comandi:
+                      add <id> <email> <nome completo>
+                      mark <id> <aaaa-mm-gg> <PRESENT|ABSENT|LATE>
+                      status <id> <aaaa-mm-gg>
+                      absences <id>
+                      list
+                      help
+                      exit""";
+
+            private final Register register;
+
+            public Cli(Register register) {
+                this.register = register;
+            }
+
+            public String execute(String line) {
+                if (line.isBlank()) return "";
+                String[] p = line.trim().split("\\s+", 4);
+                try {
+                    return switch (p[0]) {
+                        case "add" -> {
+                            args(p, 4, "add <id> <email> <nome completo>");
+                            register.addStudent(new Student(p[1], p[3], p[2]));
+                            yield "Aggiunto " + p[1];
+                        }
+                        case "mark" -> {
+                            args(p, 4, "mark <id> <aaaa-mm-gg> <stato>");
+                            LocalDate date = LocalDate.parse(p[2]);
+                            AttendanceStatus status = AttendanceStatus.valueOf(p[3].toUpperCase());
+                            register.mark(p[1], date, status);
+                            yield "Segnato " + p[1] + " " + date + " " + status;
+                        }
+                        case "status" -> {
+                            args(p, 3, "status <id> <aaaa-mm-gg>");
+                            yield register.statusOf(p[1], LocalDate.parse(p[2]))
+                                    .map(Enum::name)
+                                    .orElse("Nessuna registrazione");
+                        }
+                        case "absences" -> {
+                            args(p, 2, "absences <id>");
+                            yield String.valueOf(register.absences(p[1]));
+                        }
+                        case "list" -> register.students().isEmpty()
+                                ? "Nessuno studente"
+                                : register.students().stream()
+                                        .map(s -> s.id() + " - " + s.fullName())
+                                        .collect(Collectors.joining("\n"));
+                        case "help" -> HELP;
+                        default -> "Comando sconosciuto: " + p[0] + ". Scrivi help.";
+                    };
+                } catch (IllegalArgumentException | DateTimeException e) {
+                    return "Errore: " + e.getMessage();
+                }
+            }
+
+            private static void args(String[] parts, int expected, String usage) {
+                if (parts.length != expected) throw new IllegalArgumentException("uso: " + usage);
+            }
+        }
+        ```
+    checks:
+      - run: mvn -q test -Dtest=CliTest
+    review:
+      - Cli non legge né stampa nulla
+      - Non viene catturata Exception generica
+
+  - id: T08
+    milestone: M3
+    title: Il programma completo
+    depends_on: [T07]
+    goal: Il programma legge comandi fino a exit, risponde e salva dopo ogni comando.
+    learn: [input-output, persistenza-incrementale, test-di-integrazione]
+    theory: |
+      **Mettere insieme i pezzi.** `App` ora fa solo da collegamento: carica il registro dal file,
+      legge righe, le passa a `Cli`, stampa la risposta e salva. Tutta la logica sta già
+      nelle classi che hai testato.
+
+      **Testabile anche qui.** Invece di usare direttamente `System.in` e `System.out`, scrivi
+      `public static void run(InputStream in, PrintStream out, Path dataFile) throws IOException`.
+      Il `main` chiama `run(System.in, System.out, Path.of("presenze.csv"))` (oppure il percorso
+      passato come primo argomento). Il test passa testo finto e legge l'output: è un
+      *test di integrazione*, verifica i pezzi insieme.
+
+      **Il ciclo:**
+      1. stampa un messaggio di benvenuto che contiene `Registro presenze`
+      2. leggi righe finché arriva `exit` o finisce l'input (`readLine()` restituisce `null`)
+      3. per ogni riga: risposta di `cli.execute`, stampala se non è vuota, **salva**
+
+      **Perché salvare a ogni comando.** Se il programma si chiude male, perdi al massimo
+      l'ultimo comando. Per un file piccolo il costo è trascurabile.
+
+      Alla fine prova davvero: `mvn -q compile` e poi
+      `java -cp target/classes it.presenze.App`. Hai costruito un programma intero, a mano.
+    files:
+      - path: src/main/java/it/presenze/App.java
+      - path: src/test/java/it/presenze/AppTest.java
+        given: true
+        content: |
+          package it.presenze;
+
+          import org.junit.jupiter.api.Test;
+          import org.junit.jupiter.api.io.TempDir;
+
+          import java.io.ByteArrayInputStream;
+          import java.io.ByteArrayOutputStream;
+          import java.io.IOException;
+          import java.io.PrintStream;
+          import java.nio.charset.StandardCharsets;
+          import java.nio.file.Path;
+
+          import static org.junit.jupiter.api.Assertions.*;
+
+          class AppTest {
+
+              @TempDir
+              Path dir;
+
+              private String run(String input, Path data) throws IOException {
+                  ByteArrayOutputStream out = new ByteArrayOutputStream();
+                  App.run(new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)),
+                          new PrintStream(out, true, StandardCharsets.UTF_8), data);
+                  return out.toString(StandardCharsets.UTF_8);
+              }
+
+              @Test
+              void keepsDataBetweenRuns() throws IOException {
+                  Path data = dir.resolve("presenze.csv");
+                  String first = run("add s1 mario@scuola.it Mario Rossi\nmark s1 2026-11-07 ABSENT\nexit\n", data);
+                  assertTrue(first.contains("Registro presenze"));
+                  assertTrue(first.contains("Aggiunto s1"));
+
+                  String second = run("absences s1\nexit\n", data);
+                  assertTrue(second.lines().anyMatch("1"::equals), second);
+              }
+
+              @Test
+              void stopsAtExit() throws IOException {
+                  String out = run("exit\nadd s1 mario@scuola.it Mario Rossi\n", dir.resolve("presenze.csv"));
+                  assertFalse(out.contains("Aggiunto"));
+              }
+
+              @Test
+              void stopsAtEndOfInput() throws IOException {
+                  String out = run("list\n", dir.resolve("presenze.csv"));
+                  assertTrue(out.contains("Nessuno studente"));
+              }
+          }
+    hints:
+      - "Per leggere righe: `new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))` e `readLine()` in un `while`."
+      - "La condizione del ciclo: `(line = reader.readLine()) != null && !line.trim().equals(\"exit\")`. Dentro: `execute`, stampa se non vuota, `CsvStore.save(register, dataFile)`."
+      - |
+        ```java
+        package it.presenze;
+
+        import it.presenze.cli.Cli;
+        import it.presenze.model.Register;
+        import it.presenze.store.CsvStore;
+
+        import java.io.*;
+        import java.nio.charset.StandardCharsets;
+        import java.nio.file.Path;
+
+        public class App {
+
+            public static void main(String[] args) throws IOException {
+                Path data = Path.of(args.length > 0 ? args[0] : "presenze.csv");
+                run(System.in, System.out, data);
+            }
+
+            public static void run(InputStream in, PrintStream out, Path dataFile) throws IOException {
+                Register register = CsvStore.load(dataFile);
+                Cli cli = new Cli(register);
+                out.println("Registro presenze. Scrivi help per i comandi, exit per uscire.");
+                BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+                String line;
+                while ((line = reader.readLine()) != null && !line.trim().equals("exit")) {
+                    String answer = cli.execute(line);
+                    if (!answer.isEmpty()) out.println(answer);
+                    CsvStore.save(register, dataFile);
+                }
+            }
+        }
+        ```
+    checks:
+      - run: mvn -q test
+    review:
+      - main contiene solo il collegamento, nessuna logica
+      - Tutti i test del progetto passano, non solo l'ultimo

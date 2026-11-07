@@ -1,0 +1,98 @@
+{
+  "name": "mocoder",
+  "displayName": "mocoder",
+  "description": "Un tutor che ti guida a costruire a mano il tuo progetto, task dopo task.",
+  "version": "0.1.0",
+  "publisher": "mocoder",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "vscode": "^1.95.0",
+    "node": ">=22.18"
+  },
+  "categories": [
+    "Education"
+  ],
+  "main": "./dist/extension.cjs",
+  "activationEvents": [
+    "workspaceContains:.mocoder/backlog.yaml"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "mocoder",
+          "title": "mocoder",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "mocoder": [
+        {
+          "type": "webview",
+          "id": "mocoder.tutor",
+          "name": "Tutor"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "mocoder.copyPlannerPrompt",
+        "title": "Copia il prompt per creare un backlog",
+        "category": "mocoder"
+      },
+      {
+        "command": "mocoder.import",
+        "title": "Importa backlog",
+        "category": "mocoder"
+      },
+      {
+        "command": "mocoder.verify",
+        "title": "Verifica il task corrente",
+        "category": "mocoder"
+      },
+      {
+        "command": "mocoder.verifyBacklog",
+        "title": "Verifica il backlog (rosso → verde)",
+        "category": "mocoder"
+      }
+    ],
+    "configuration": {
+      "title": "mocoder",
+      "properties": {
+        "mocoder.guidance": {
+          "type": "string",
+          "enum": [
+            "guidato",
+            "suggerimenti",
+            "autonomo"
+          ],
+          "enumDescriptions": [
+            "Teoria sempre visibile, scheletri dei file, tutti i suggerimenti",
+            "Teoria su richiesta, scheletri, la soluzione chiede conferma",
+            "Solo obiettivo e controlli: niente scheletri né suggerimenti"
+          ],
+          "default": "guidato",
+          "description": "Quanto ti aiuta il tutor."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "esbuild src/extension.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --loader:.md=text --outfile=dist/extension.cjs",
+    "typecheck": "tsc",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "verify": "node src/cli/verify.ts"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/vscode": "^1.95.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  }
+}

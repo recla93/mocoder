@@ -1,0 +1,128 @@
+# Soluzione di riferimento: nascosta all'utente, serve a verificare i check (rosso prima, verde dopo).
+schema: 1
+tasks:
+  T01:
+    - path: spese/load.py
+      content: |
+        import csv
+        from dataclasses import dataclass
+        from datetime import date
+        from decimal import Decimal, InvalidOperation
+        from pathlib import Path
+
+
+        @dataclass(frozen=True)
+        class Expense:
+            day: date
+            category: str
+            amount: Decimal
+
+
+        def load_expenses(path: Path) -> list[Expense]:
+            expenses = []
+            with open(path, newline="", encoding="utf-8") as f:
+                for line, row in enumerate(csv.DictReader(f), start=2):
+                    try:
+                        expenses.append(parse_row(row))
+                    except (ValueError, InvalidOperation) as e:
+                        raise ValueError(f"riga {line}: {e}") from e
+            return expenses
+
+
+        def parse_row(row: dict[str, str]) -> Expense:
+            category = row["category"].strip().lower()
+            if not category:
+                raise ValueError("categoria mancante")
+            amount = Decimal(row["amount"])
+            if amount < 0:
+                raise ValueError(f"importo negativo: {amount}")
+            return Expense(date.fromisoformat(row["date"]), category, amount)
+  T02:
+    - path: spese/report.py
+      content: |
+        from collections import defaultdict
+        from decimal import Decimal
+
+        from spese.load import Expense
+
+
+        def totals_by_category(expenses: list[Expense]) -> dict[str, Decimal]:
+            totals: dict[str, Decimal] = defaultdict(Decimal)
+            for x in expenses:
+                totals[x.category] += x.amount
+            return dict(sorted(totals.items(), key=lambda kv: (-kv[1], kv[0])))
+  T03:
+    - path: tests/test_month.py
+      content: |
+        from datetime import date
+        from decimal import Decimal
+
+        from spese.load import Expense
+        from spese.report import totals_by_month
+
+
+        def test_groups_by_month():
+            expenses = [
+                Expense(date(2026, 11, 2), "cibo", Decimal("10")),
+                Expense(date(2026, 11, 20), "casa", Decimal("5")),
+                Expense(date(2026, 12, 1), "cibo", Decimal("1")),
+            ]
+            assert totals_by_month(expenses) == {"2026-11": Decimal("15"), "2026-12": Decimal("1")}
+    - path: spese/report.py
+      content: |
+        from collections import defaultdict
+        from decimal import Decimal
+
+        from spese.load import Expense
+
+
+        def totals_by_category(expenses: list[Expense]) -> dict[str, Decimal]:
+            totals: dict[str, Decimal] = defaultdict(Decimal)
+            for x in expenses:
+                totals[x.category] += x.amount
+            return dict(sorted(totals.items(), key=lambda kv: (-kv[1], kv[0])))
+
+
+        def totals_by_month(expenses: list[Expense]) -> dict[str, Decimal]:
+            totals: dict[str, Decimal] = defaultdict(Decimal)
+            for x in expenses:
+                totals[x.day.strftime("%Y-%m")] += x.amount
+            return dict(sorted(totals.items()))
+  T04:
+    - path: spese/__main__.py
+      content: |
+        import sys
+        from decimal import Decimal
+        from pathlib import Path
+
+        from spese.load import load_expenses
+        from spese.report import totals_by_category, totals_by_month
+
+
+        def main(argv: list[str] | None = None) -> int:
+            args = sys.argv[1:] if argv is None else argv
+            if len(args) != 1:
+                print("uso: python -m spese <file.csv>", file=sys.stderr)
+                return 2
+            try:
+                expenses = load_expenses(Path(args[0]))
+            except FileNotFoundError:
+                print(f"File non trovato: {args[0]}", file=sys.stderr)
+                return 1
+            except ValueError as e:
+                print(f"Errore: {e}", file=sys.stderr)
+                return 1
+            section("Per categoria", totals_by_category(expenses))
+            section("Per mese", totals_by_month(expenses))
+            print(f"{'Totale':<12}{sum((x.amount for x in expenses), Decimal()):>10.2f}")
+            return 0
+
+
+        def section(title: str, totals: dict[str, Decimal]) -> None:
+            print(title)
+            for name, amount in totals.items():
+                print(f"  {name:<10}{amount:>10.2f}")
+
+
+        if __name__ == "__main__":
+            sys.exit(main())
