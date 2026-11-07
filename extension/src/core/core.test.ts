@@ -41,6 +41,8 @@ test('il backlog rifiuta errori strutturali e percorsi pericolosi', () => {
   assert.ok(broken(b => b.tasks[0].files[0].path = 'C:/x.txt').length);
   assert.ok(broken(b => delete b.tasks[0].files[0].content).length);                    // given senza contenuto
   assert.ok(broken(b => b.tasks[0].hints = ['solo uno']).length);
+  // "Soluzione: x" senza virgolette diventa una mappa: l'errore deve dire come correggerlo
+  assert.match(broken(b => b.tasks[0].hints[2] = { Soluzione: 'x' }).join(), /tra virgolette/);
   assert.match(parseBacklog('a: [').errors.join(), /YAML/);
 });
 

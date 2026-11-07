@@ -55,3 +55,5 @@ fallisca prima del lavoro e passi dopo. Se un controllo passa già con lo schele
 
 Non aggiungere campi che non esistono nello schema. Non mettere testo dopo i blocchi YAML.
 Dentro lo YAML i blocchi di codice dei suggerimenti vanno indentati come il resto del testo.
+Ogni testo che contiene `: ` (per esempio `Soluzione: return x`) va tra virgolette doppie o in un blocco `|`,
+altrimenti YAML lo legge come una mappa. Inizia sempre con la sezione `## Fattibilità`.

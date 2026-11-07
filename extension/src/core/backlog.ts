@@ -43,7 +43,10 @@ export type Parsed<T> = { value: T; errors: [] } | { value?: undefined; errors: 
 function describe(errors: ErrorObject[] | null | undefined): string[] {
   return (errors ?? []).map(e => {
     const where = e.instancePath || '(radice)';
-    const extra = e.keyword === 'additionalProperties' ? ` ('${e.params.additionalProperty}')` : '';
+    const extra = e.keyword === 'additionalProperties' ? ` ('${e.params.additionalProperty}')`
+      // l'errore YAML più comune degli LLM: una frase con ": " senza virgolette diventa una mappa
+      : e.keyword === 'type' && e.params.type === 'string'
+        ? ' (se è una frase che contiene ": ", mettila tra virgolette doppie o in un blocco |)' : '';
     return `${where}: ${e.message}${extra}`;
   });
 }

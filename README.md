@@ -25,8 +25,12 @@ Le chiavi restano nel portachiavi del sistema. Poi:
 - **Review** a fine task e a fine milestone, come in una pull request.
 
 Impostazioni: `mocoder.ai.model` (default `claude-opus-5-5`), `mocoder.ai.mentorModel` (un modello economico o locale
-per le domande), `mocoder.ai.monthlyTokenBudget` (0 = senza limite). Con Ollama alza il contesto
+per le domande), `mocoder.ai.monthlyTokenBudget` (0 = senza limite).
+
+**Gratis senza appesantire il PC:** Ollama con un modello cloud del piano gratuito, es. `gemma4:31b-cloud`
+(gira sui server di Ollama; serve aver fatto l'accesso in Ollama). Con i modelli locali alza il contesto
 (`OLLAMA_CONTEXT_LENGTH=32768`): il prompt del Planner contiene lo schema intero.
+I modelli gratuiti di OpenCode non si possono usare da client esterni (rispondono 403).
 
 ## Repository
 

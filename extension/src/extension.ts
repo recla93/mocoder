@@ -80,7 +80,7 @@ async function aiLabel(ctx: vscode.ExtensionContext): Promise<string | undefined
 async function configureAI(ctx: vscode.ExtensionContext) {
   const choice = await vscode.window.showQuickPick([
     { label: 'Anthropic (Claude)', provider: 'anthropic' as const, baseUrl: '' },
-    { label: 'Ollama (locale, gratis)', provider: 'openai' as const, baseUrl: 'http://localhost:11434/v1' },
+    { label: 'Ollama (modelli locali o cloud gratuiti)', provider: 'openai' as const, baseUrl: 'http://localhost:11434/v1' },
     { label: 'Altro provider OpenAI-compatibile', description: 'OpenAI, OpenRouter, Groq, LM Studio…', provider: 'openai' as const, baseUrl: 'https://api.openai.com/v1' },
   ], { title: 'mocoder · Quale IA usi?' });
   if (!choice) return;
@@ -102,11 +102,15 @@ async function configureAI(ctx: vscode.ExtensionContext) {
     }
   }
   const current = aiSettings();
-  const model = models.length
-    ? (await vscode.window.showQuickPick(models, { title: 'Modello Ollama' }))
-    : await vscode.window.showInputBox({
+  const ollama = choice.label.startsWith('Ollama');
+  const OTHER = 'Altro modello… (es. gemma4:31b-cloud)';
+  let model = models.length
+    ? await vscode.window.showQuickPick([...models, OTHER], { title: 'Modello Ollama: quelli ":cloud" girano sui server di Ollama, non sul tuo PC' })
+    : undefined;
+  if (models.length && !model) return;
+  if (!models.length || model === OTHER) model = await vscode.window.showInputBox({
       title: 'Modello',
-      value: choice.provider === 'anthropic' ? (current.provider === 'anthropic' ? current.model : 'claude-opus-5-5') : '',
+      value: choice.provider === 'anthropic' ? (current.provider === 'anthropic' ? current.model : 'claude-opus-5-5') : ollama ? 'gemma4:31b-cloud' : '',
       prompt: choice.provider === 'anthropic' ? 'Es. claude-opus-5-5 (consigliato) o claude-haiku-5-5 (economico)' : 'Nome del modello sul provider',
       ignoreFocusOut: true,
     });
