@@ -109,6 +109,16 @@ test('runChecks: exit code, expect e stop al primo errore', async () => {
   assert.ok(!passed(stops));
 });
 
+test('runChecks: un ciclo infinito viene fermato con tutti i processi figli', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'mocoder-test-'));
+  const t0 = Date.now();
+  // la shell lancia node, che non termina mai: prima della correzione la verifica restava appesa per sempre
+  const [r] = await runChecks(root, [{ run: `"${process.execPath}" -e "setInterval(() => {}, 1000)"` }], 1500);
+  assert.ok(!r.ok);
+  assert.match(r.output, /interrotto dopo 1.5s/);
+  assert.ok(Date.now() - t0 < 10_000, 'la verifica deve tornare poco dopo il timeout');
+});
+
 test('progressi: sblocco per dipendenze e milestone completata', () => {
   const p = { done: [] as string[], hints: {} };
   assert.equal(nextTask(java, p)?.id, 'T01');
