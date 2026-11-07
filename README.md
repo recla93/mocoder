@@ -26,6 +26,12 @@ attendibili, perché esegue i comandi dei controlli.
 
 Livello di guida (`mocoder.guidance`): `guidato`, `suggerimenti`, `autonomo`.
 
+**Fondamenta garantite:** il prompt chiede struttura delle cartelle, file di build spiegati, `.gitignore`, README,
+configurazione senza segreti, database con schema versionato e query parametrizzate, sicurezza e convenzioni.
+Le regole certe sono anche controllate all'import (`.gitignore`, `README.md`, file di build per lo strumento usato,
+plugin e dipendenze Maven con versione fissata, schema SQL in un file `.sql`); le regole del progetto (`conventions`)
+restano visibili nel pannello e il Reviewer le verifica.
+
 **Sicurezza:** i controlli dei task sono comandi eseguiti sul tuo computer e il backlog può arrivare da un chatbot.
 Prima della prima verifica mocoder mostra tutti i comandi (⚠ su quelli insoliti) e chiede di consentirli; l'approvazione
 vale per quella cartella e decade se i comandi cambiano, anche quando li riscrive il Planner.

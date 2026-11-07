@@ -14,6 +14,13 @@
     "estimate_hours": { "type": "number", "exclusiveMinimum": 0, "description": "Ore stimate per completare tutto al livello indicato." },
     "stack": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/text" } },
     "env": { "$ref": "#/$defs/path", "description": "Opzionale: devcontainer.json o compose file per un ambiente riproducibile." },
+    "conventions": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 12,
+      "description": "Regole del progetto valide per tutto il percorso (struttura, naming, sicurezza, git, database…), nella forma 'Area — regola'. Lo studente le vede sempre e il Reviewer le controlla.",
+      "items": { "$ref": "#/$defs/text" }
+    },
     "milestones": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/milestone" } },
     "tasks": {
       "type": "array",

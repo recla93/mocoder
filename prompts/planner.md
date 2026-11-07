@@ -40,13 +40,48 @@ fallisca prima del lavoro e passi dopo. Se un controllo passa già con lo schele
 2. **Milestone = incremento che funziona**: alla fine di ognuna il programma fa qualcosa di più e tutti i test passano.
 3. **Teoria** (100–250 parole, markdown): perché lo facciamo, come, errori tipici. Se il test chiama classi o metodi, la teoria ne dichiara nome e firma esatti.
 4. **Suggerimenti**: 2–4, dal concetto all'indizio fino alla soluzione completa (l'ultimo).
-4b. **`search`** (sempre presente): 1–3 ricerche web per trovare da soli l'argomento del task quando non c'è un tutor.
+5. **`search`** (sempre presente): 1–3 ricerche web per trovare da soli l'argomento del task quando non c'è un tutor.
    Specifiche, con linguaggio e concetto, preferibilmente in inglese, dove la documentazione è più ricca
    (es. `python csv DictReader`, `java record compact constructor validation`). Niente link: potrebbero non esistere.
-5. **Scaffold che si riduce**: all'inizio scheletri con firme e `TODO`, poi solo il percorso del file, poi niente.
-6. **Almeno un task TDD**: l'utente scrive prima il proprio test (scheletro che fallisce con `fail`), poi il codice.
-7. **`review`**: 2–4 criteri che guarderebbe un senior in una PR (nomi, gestione errori, responsabilità).
-8. **Lavoro reale**: identificatori in inglese, testi per l'utente in italiano, convenzioni standard del linguaggio, struttura di progetto standard (Maven/Gradle, pyproject, package.json...).
+6. **Scaffold che si riduce**: all'inizio scheletri con firme e `TODO`, poi solo il percorso del file, poi niente.
+7. **Almeno un task TDD**: l'utente scrive prima il proprio test (scheletro che fallisce con `fail`), poi il codice.
+8. **`review`**: 2–4 criteri che guarderebbe un senior in una PR. Quando il task tocca input, dati, configurazione
+   o dipendenze, almeno un criterio riguarda la sicurezza.
+9. **Lavoro reale**: identificatori in inglese, testi per l'utente in italiano.
+
+### Fondamenta e qualità: obbligatorie, mai da saltare
+Un progetto vero non è solo codice che funziona. Ogni punto che riguarda il progetto deve comparire in almeno
+un task (teoria + file + controllo) o in un criterio di `review`. Per un principiante introducili un po' alla volta,
+spiegando il perché, ma non ometterli.
+
+1. **Struttura delle cartelle** standard dello stack, spiegata nel primo task: Maven/Gradle
+   (`src/main/java`, `src/test/java`, `src/main/resources`, package con dominio al contrario es. `it.nome.app`),
+   Python (package con `__init__.py` + `tests/`), Node (`src/`, `test/`), con una cartella per responsabilità
+   (es. `model`, `service`, `repository`, `web`/`cli`).
+2. **File di build e dipendenze** spiegati riga per riga la prima volta: `pom.xml` (groupId, artifactId, version,
+   `maven.compiler.release`, encoding UTF-8, dipendenze con `scope`, plugin con **versione fissata**),
+   `build.gradle`, `pyproject.toml`, `package.json` con lockfile. Versioni sempre esplicite, mai "latest".
+3. **`.gitignore` fin dal primo task**: output di build (`target/`, `build/`, `dist/`, `__pycache__/`),
+   dipendenze (`node_modules/`, `.venv/`), file dell'IDE, file di dati locali, `.env`.
+   Più un `README.md` breve: cos'è, come si avvia, come si lanciano i test.
+4. **Configurazione e segreti**: mai password, chiavi o token nel codice o in git. Variabili d'ambiente o un file
+   `.env` ignorato da git, con un `.env.example` versionato senza valori veri. La configurazione si legge in un punto solo.
+5. **Database** (se il progetto ne usa uno): lo schema sta in un **file `.sql` versionato** (es.
+   `src/main/resources/db/schema.sql` letto all'avvio, o migrazioni Flyway `V1__init.sql`/Liquibase in Java,
+   Alembic in Python, migrazioni del framework in Node), mai in stringhe dentro il codice; **query sempre parametrizzate** (mai concatenare input
+   nelle query: SQL injection), connessione presa dalla configurazione, risorse chiuse (try-with-resources, `with`),
+   transazioni dove servono più scritture insieme. Nei test: database in memoria o file temporaneo (H2/SQLite).
+6. **Sicurezza**: validazione dell'input ai confini (CLI, HTTP, file), messaggi d'errore che non espongono dettagli
+   interni, password solo come hash (bcrypt/argon2, mai in chiaro né con MD5/SHA1), niente dati sensibili nei log,
+   principio del minimo privilegio. Per il web anche escaping dell'output (XSS), CSRF, cookie sicuri, HTTPS.
+7. **Convenzioni**: stile standard del linguaggio con il suo formatter/linter (Google Java Style, PEP 8 con ruff
+   o black, Prettier + ESLint), nomi chiari, una classe pubblica per file, Conventional Commits
+   (`feat:`, `fix:`, `test:`…), un commit per task.
+8. **Best practice**: test automatici per ogni comportamento (anche i casi di errore), gestione esplicita degli
+   errori, nessuna duplicazione inutile, logging al posto di stampe di debug quando il progetto cresce.
+9. **`conventions`** (radice del backlog): 5–10 regole del progetto da rispettare per tutto il percorso,
+   una per riga, nella forma `Area — regola` (es. `Sicurezza — le query SQL usano sempre parametri`).
+   Lo studente le vede sempre e il Reviewer le controlla.
 
 ### Regole tecniche sui controlli
 1. Ogni task ha controlli automatici che falliscono finché il lavoro non è fatto. Un controllo passa solo se il
@@ -58,6 +93,8 @@ fallisca prima del lavoro e passi dopo. Se un controllo passa già con lo schele
    del progetto. Per Python usa `python -m pytest`, non `pytest`: solo così i moduli nella radice sono importabili.
 5. `depends_on` solo verso task precedenti.
 6. Sicurezza informatica: solo bersagli locali e legali (container, macchine di laboratorio), mai sistemi di terzi.
+7. I comandi dei controlli non cancellano file, non scaricano script, non usano percorsi fuori dal progetto:
+   lo studente vedrà l'elenco e dovrà approvarlo.
 
 Non aggiungere campi che non esistono nello schema. Non mettere testo dopo i blocchi YAML.
 Dentro lo YAML i blocchi di codice dei suggerimenti vanno indentati come il resto del testo.

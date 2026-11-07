@@ -7,6 +7,14 @@ summary: >
 level: principiante
 estimate_hours: 5
 stack: [python-3.11, pytest]
+conventions:
+  - Struttura — codice nel package spese/, test in tests/
+  - Build — pyproject.toml descrive il progetto; dipendenze con versioni esplicite
+  - Git — __pycache__/, .pytest_cache/ e .venv/ fuori da git; un commit per task
+  - Dati — gli importi sono sempre Decimal, mai float
+  - Sicurezza — ogni riga del CSV si valida; un errore indica la riga senza esporre dettagli interni
+  - Stile — PEP 8 (ruff o black), nomi in inglese, funzioni piccole
+  - Errori — messaggi su stderr ed exit code diverso da 0
 
 milestones:
   - id: M1
@@ -64,6 +72,15 @@ tasks:
           __pycache__/
           .pytest_cache/
           .venv/
+      - path: README.md
+        given: true
+        content: |
+          # Analisi spese
+
+          Totali per categoria e per mese da un file CSV (date,category,amount).
+
+          - Test: `python -m pytest -q`
+          - Avviare: `python -m spese spese.csv`
       - path: spese/__init__.py
         given: true
         content: ""

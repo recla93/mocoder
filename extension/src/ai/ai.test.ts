@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { anthropic, openaiCompatible, withBudget, AiError, type ChatRequest, type Complete, type Usage } from './providers.ts';
-import { plan, taskContext, mentorMessages, promptBody, fill, fixUntilGreen, fixRequest, MAX_FIX_ROUNDS } from './roles.ts';
+import { plan, taskContext, mentorMessages, reviewMessages, promptBody, fill, fixUntilGreen, fixRequest, MAX_FIX_ROUNDS } from './roles.ts';
 import { parseBacklog, parsePlannerAnswer } from '../core/backlog.ts';
 
 /** Server finto: registra la richiesta e risponde con l'handler dato. */
@@ -183,6 +183,18 @@ test('il Mentor non riceve la soluzione finché lo studente non l\'ha aperta', (
   const m = mentorMessages('CTX', [{ role: 'student', text: 'perché?' }, { role: 'tutor', text: 'pensa a X' }], 'e ora?');
   assert.equal(m.length, 1);
   assert.match(m[0].content, /CTX[\s\S]*perché\?[\s\S]*pensa a X[\s\S]*e ora\?/);
+});
+
+test('il Reviewer riceve le regole del progetto', () => {
+  const b = parseBacklog(backlogText).value!;
+  const [m] = reviewMessages([b.tasks[0]], [{ path: 'spese/load.py', content: 'x = 1' }], 'T01', b.conventions);
+  assert.match(m.content, /### Regole del progetto[\s\S]*Decimal, mai float[\s\S]*### Task[\s\S]*### Codice/);
+});
+
+test('il prompt del Planner copre fondamenta, sicurezza e convenzioni', () => {
+  const md = readFileSync(join(import.meta.dirname, '../../../prompts/planner.md'), 'utf8');
+  for (const must of ['.gitignore', 'pom.xml', 'migrazioni', 'parametrizzate', 'segreti', '.env.example', 'hash', 'Conventional Commits', 'conventions', 'README'])
+    assert.ok(md.includes(must), `manca: ${must}`);
 });
 
 test('prompt del Planner: corpo dopo --- e segnaposto riempiti', () => {

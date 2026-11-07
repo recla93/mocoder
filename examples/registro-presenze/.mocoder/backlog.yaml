@@ -7,6 +7,14 @@ summary: >
 level: principiante
 estimate_hours: 10
 stack: [java-21, maven, junit-5]
+conventions:
+  - Struttura — layout standard Maven, codice in src/main/java e test in src/test/java
+  - Package — dominio al contrario (it.presenze) e un package per responsabilità (model, store, cli)
+  - Build — versioni di Java, dipendenze e plugin sempre fissate nel pom.xml
+  - Git — target/ e i file di dati restano fuori da git; un commit per task con Conventional Commits
+  - Sicurezza — l'input dell'utente si valida prima di usarlo; gli errori diventano messaggi chiari, non stack trace
+  - Stile — Google Java Style, nomi in inglese, una classe pubblica per file, campi private final
+  - Test — ogni comportamento ha un test, compresi i casi di errore
 
 milestones:
   - id: M1
@@ -97,6 +105,16 @@ tasks:
         content: |
           target/
           *.csv
+      - path: README.md
+        given: true
+        content: |
+          # Registro presenze
+
+          Registro presenze da riga di comando, con salvataggio su file.
+
+          - Compilare: `mvn -q compile`
+          - Test: `mvn -q test`
+          - Avviare: `java -cp target/classes it.presenze.App`
       - path: src/main/java/it/presenze/App.java
     hints:
       - "Un programma Java parte da `public static void main(String[] args)` dentro una classe pubblica."

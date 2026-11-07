@@ -28,6 +28,7 @@ export interface Backlog {
   estimate_hours: number;
   stack: string[];
   env?: string;
+  conventions?: string[];
   milestones: Milestone[];
   tasks: Task[];
 }
@@ -60,6 +61,7 @@ function autofix(data: any): string[] {
     });
   };
   toText(data.stack, 'stack');
+  toText(data.conventions, 'conventions');
   for (const t of data.tasks) {
     if (!t || typeof t !== 'object') continue;
     toText(t.hints, `${t.id}.hints`);
@@ -124,7 +126,51 @@ export function parseBacklog(text: string): Parsed<Backlog> {
     }
     seen.add(t.id);
   }
+  problems.push(...foundations(data));
   return problems.length ? { errors: problems, fixes } : { value: data, errors: [], fixes };
+}
+
+/**
+ * Fondamenta che un modello tende a saltare anche quando il prompt le chiede: qui sono controlli,
+ * così il ciclo di correzione lo costringe a rimediare. Solo regole certe, niente euristiche vaghe.
+ */
+function foundations(b: Backlog): string[] {
+  const files = b.tasks.flatMap(t => t.files ?? []);
+  const has = (name: string) => files.some(f => f.path === name || f.path.endsWith(`/${name}`));
+  const problems: string[] = [];
+  if (!has('.gitignore')) problems.push('manca un .gitignore: va creato nel primo task, così output di build, dipendenze e segreti non finiscono in git');
+  if (!has('README.md')) problems.push('manca un README.md: nel primo task, con cos\'è il progetto, come si avvia e come si lanciano i test');
+
+  // lo strumento usato dai controlli ha bisogno del suo file di progetto
+  const runs = b.tasks.flatMap(t => t.checks.map(c => c.run));
+  const buildFiles: [RegExp, string[], string][] = [
+    [/^mvn(w)?\b/, ['pom.xml'], 'pom.xml'],
+    [/^(gradle|gradlew)\b/, ['build.gradle', 'build.gradle.kts'], 'build.gradle'],
+    [/^(npm|npx|yarn|pnpm)\b/, ['package.json'], 'package.json'],
+  ];
+  for (const [tool, names, label] of buildFiles) {
+    if (runs.some(r => tool.test(r)) && !names.some(has)) problems.push(`i controlli usano ${runs.find(r => tool.test(r))!.split(' ')[0]} ma nessun task crea il ${label}`);
+  }
+
+  // Database: lo schema è codice da versionare, non una stringa nascosta in una classe
+  const text = [...files.map(f => f.content ?? ''), ...b.tasks.flatMap(t => [t.theory, ...t.hints])].join('\n');
+  if (/\bCREATE\s+TABLE\b/i.test(text) && !files.some(f => f.path.endsWith('.sql'))) {
+    problems.push('il progetto crea tabelle ma lo schema non è in un file .sql versionato (es. src/main/resources/db/schema.sql o una migrazione Flyway V1__init.sql)');
+  }
+
+  // Maven: build riproducibile solo con versioni fissate
+  for (const pom of files.filter(f => f.path.endsWith('pom.xml') && f.content)) {
+    const xml = pom.content!.replace(/<!--[\s\S]*?-->/g, '');
+    const blocks = (tag: string) => [...xml.matchAll(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, 'g'))].map(m => m[1]);
+    const name = (block: string) => block.match(/<artifactId>([^<]+)<\/artifactId>/)?.[1] ?? '?';
+    const managed = /<dependencyManagement>|<parent>/.test(xml);   // versioni da BOM o parent: legittimo
+    for (const p of blocks('plugin').filter(p => !/<version>/.test(p))) problems.push(`${pom.path}: il plugin ${name(p)} non ha una <version> fissata`);
+    if (!managed) for (const d of blocks('dependency').filter(d => !/<version>/.test(d))) problems.push(`${pom.path}: la dipendenza ${name(d)} non ha una <version>`);
+    for (const p of ['maven-compiler-plugin', 'maven-surefire-plugin']) {
+      if (!xml.includes(`<artifactId>${p}</artifactId>`)) problems.push(`${pom.path}: dichiara ${p} con una versione fissata (build riproducibile e test JUnit 5 eseguiti)`);
+    }
+  }
+  return problems;
 }
 
 export function parseSolution(text: string, backlog: Backlog): Parsed<Solution> {

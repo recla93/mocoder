@@ -346,7 +346,7 @@ class Tutor implements vscode.WebviewViewProvider {
     const label = scope === 'task' ? `${of.id} · ${of.title}` : `milestone ${of.milestone}`;
     this.selected = of.id;
     await this.withAI(of, undefined, async complete =>
-      (await complete({ system: reviewerPrompt, messages: reviewMessages(tasks, this.studentFiles(tasks), label), maxTokens: 16000, effort: 'medium' })).text,
+      (await complete({ system: reviewerPrompt, messages: reviewMessages(tasks, this.studentFiles(tasks), label, this.backlog?.conventions), maxTokens: 16000, effort: 'medium' })).text,
     'review', 'main');
   }
 

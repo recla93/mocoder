@@ -150,6 +150,7 @@ export function renderPage(p: Page): string {
         </select>
       </label>
     </header>
+    ${b.conventions?.length ? `<details class="list"><summary>Regole del progetto (${b.conventions.length})</summary><ul>${b.conventions.map(c => `<li>${esc(c)}</li>`).join('')}</ul></details>` : ''}
     <details class="list"><summary>Percorso</summary>${taskList(b, p)}</details>
     ${p.task ? taskDetail(p.task, p, b) : '<p>Nessun task disponibile.</p>'}`;
 

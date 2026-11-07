@@ -43,6 +43,16 @@ test('il backlog rifiuta errori strutturali e percorsi pericolosi', () => {
   assert.ok(broken(b => b.tasks[0].hints = ['solo uno']).length);
   assert.ok(broken(b => b.tasks[0].search = ['a', 'b', 'c', 'd']).length);           // al massimo 3 ricerche
   assert.ok(java.tasks.every(t => t.search?.length), 'ogni task d\'esempio indica cosa cercare');
+  // fondamenta non negoziabili
+  assert.match(broken(b => b.tasks[0].files = b.tasks[0].files.filter((f: any) => f.path !== '.gitignore')).join(), /\.gitignore/);
+  assert.match(broken(b => b.tasks[0].files = b.tasks[0].files.filter((f: any) => f.path !== 'README.md')).join(), /README/);
+  const pom = (b: any) => b.tasks[0].files.find((f: any) => f.path === 'pom.xml');
+  assert.match(broken(b => { pom(b).content = pom(b).content.replace('<version>3.5.5</version>', ''); }).join(), /maven-surefire-plugin non ha una <version>/);
+  assert.match(broken(b => { pom(b).content = pom(b).content.replace('<version>5.12.2</version>', ''); }).join(), /junit-jupiter non ha una <version>/);
+  assert.match(broken(b => b.tasks[1].theory += '\nUsiamo CREATE TABLE books (...)').join(), /schema non è in un file \.sql/);
+  assert.match(broken(b => b.tasks[0].files = b.tasks[0].files.filter((f: any) => f.path !== 'pom.xml')).join(), /usano mvn ma nessun task crea il pom\.xml/);
+  assert.ok(broken(b => b.conventions = ['solo una']).length);                         // almeno 3 regole
+  assert.ok((java.conventions?.length ?? 0) >= 5, 'l\'esempio dichiara le regole del progetto');
   // un testo diventato struttura che non si può ricostruire: l'errore dice come correggerlo
   assert.match(broken(b => b.tasks[0].theory = { a: 1, b: 2 }).join(), /tra virgolette/);
   // errori di logica visti nei backlog generati

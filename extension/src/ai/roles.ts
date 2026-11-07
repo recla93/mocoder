@@ -132,11 +132,12 @@ export function mentorMessages(context: string, history: Exchange[], question: s
   }];
 }
 
-export function reviewMessages(tasks: Task[], files: StudentFile[], scope: string): ChatMessage[] {
+export function reviewMessages(tasks: Task[], files: StudentFile[], scope: string, conventions: string[] = []): ChatMessage[] {
   const criteria = tasks.map(t =>
     `- **${t.id} · ${t.title}**: ${t.goal}${t.review?.length ? `\n  Criteri: ${t.review.join('; ')}` : ''}`).join('\n');
+  const rules = conventions.length ? `### Regole del progetto\n${conventions.map(c => `- ${c}`).join('\n')}\n\n` : '';
   return [{
     role: 'user',
-    content: `Review di ${scope}. I controlli automatici sono già verdi.\n\n### Task\n${criteria}\n\n### Codice\n${files.map(fence).join('\n')}`,
+    content: `Review di ${scope}. I controlli automatici sono già verdi.\n\n${rules}### Task\n${criteria}\n\n### Codice\n${files.map(fence).join('\n')}`,
   }];
 }
