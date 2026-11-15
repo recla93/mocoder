@@ -204,3 +204,7 @@ npm run verify -- ../examples/analisi-spese/.mocoder/backlog.yaml ../examples/an
 
 Trying the extension: open `extension/` in VS Code and press F5 (it builds first), then open a folder with a copy of
 `examples/<name>/.mocoder/`. Use copies outside this repository: completing a task runs `git init` and commits.
+
+## License
+
+[MIT](LICENSE) © 2026 recla93

@@ -34,3 +34,7 @@ git with a name and an email (`git config --global user.name` / `user.email`), a
 
 The task checks are commands executed on your computer. Before running them mocoder shows you
 all of them (with ⚠ on the unusual ones) and asks permission; if they change, it asks again.
+
+## License
+
+MIT

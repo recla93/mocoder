@@ -187,6 +187,20 @@ This batch also translated all tests and fixed three test names that a first pas
   last line `Co-authored with Claude Opus 5.5 (Anthropic)`, **not** a `Co-Authored-By:` trailer (the owner wants
   the credit as text, without the GitHub co-author avatar).
 - Shortcuts are marked in code as `shortcut: <limit>, <when to upgrade>`; keep that form.
+- **License: MIT** (chosen 2026-11-15), copyright `recla93`. `LICENSE` lives at the root and is copied into
+  `extension/` so it ships in the `.vsix` (keep the two identical).
+- **Marketplace publisher: `Peengu`** (created 2026-11-15, no verified domain). The extension ID is
+  therefore `Peengu.mocoder`, no longer `mocoder.mocoder`: API keys (SecretStorage), command approvals
+  (workspaceState) and the token counter (globalState) belong to the old ID and are not carried over.
+- **Release prep (2026-11-15):** Marketplace icon `extension/media/icon.png` (128 px, rendered from
+  `media/logo.svg` with headless Edge: re-render it if the logo changes); `package.json` has repository, bugs,
+  homepage, keywords; `extension/CHANGELOG.md` ships in the `.vsix`. Not yet published anywhere: the first
+  Marketplace upload is manual (pre-release); Open VSX needs its own account; README screenshots are missing.
+- **CI** (`.github/workflows/ci.yml`): typecheck + tests + Python example red/green on Windows, Ubuntu and
+  macOS; Java example red/green on Ubuntu; `.vsix` as a build artifact. This is the only macOS/Linux coverage.
+- **Languages:** the core runs any check command, but offline tips, test counts, command autofixes, build-file
+  checks and missing-dependency detection exist only for Python/pytest and Java/Maven (+ npm partly). Plan:
+  JavaScript/TypeScript next, then C#, Go, Rust; C/C++ last. The second full path should be JS/TS.
 
 ## 6. Key constants
 

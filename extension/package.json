@@ -3,8 +3,28 @@
   "displayName": "mocoder",
   "description": "A tutor that guides you to build your project by hand, task after task.",
   "version": "0.2.0",
-  "publisher": "mocoder",
-  "license": "UNLICENSED",
+  "publisher": "Peengu",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/recla93/mocoder.git",
+    "directory": "extension"
+  },
+  "bugs": {
+    "url": "https://github.com/recla93/mocoder/issues"
+  },
+  "homepage": "https://github.com/recla93/mocoder#readme",
+  "keywords": [
+    "tutor",
+    "learn to code",
+    "education",
+    "beginner",
+    "java",
+    "python",
+    "tdd",
+    "ai"
+  ],
   "type": "module",
   "engines": {
     "vscode": "^1.95.0",
@@ -161,7 +181,7 @@
     "typecheck": "tsc",
     "test": "node --test \"src/**/*.test.ts\"",
     "verify": "node src/cli/verify.ts",
-    "package": "npm run build -- --minify && vsce package --no-dependencies --skip-license --allow-missing-repository --out mocoder.vsix"
+    "package": "npm run build -- --minify && vsce package --no-dependencies --out mocoder.vsix"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",

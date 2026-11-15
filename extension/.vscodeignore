@@ -1,6 +1,8 @@
-# nel pacchetto vanno solo il bundle, l'icona e i metadati
+# nel pacchetto vanno solo il bundle, le icone, i metadati, la licenza e il changelog
 **
 !dist/extension.cjs
 !media/**
 !package.json
 !README.md
+!LICENSE
+!CHANGELOG.md
