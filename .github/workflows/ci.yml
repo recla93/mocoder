@@ -17,13 +17,13 @@ jobs:
       run:
         working-directory: extension
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: extension/package-lock.json
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - run: python -m pip install pytest
@@ -34,23 +34,23 @@ jobs:
         run: npm run verify -- ../examples/analisi-spese/.mocoder/backlog.yaml ../examples/analisi-spese/.mocoder/solution.yaml
 
   java-example:
-    # Maven downloads its plugins on the first build: once, on one OS, is enough
+    # Maven downloads its plugins on the first build: once, on one OS, is enough.
+    # No setup-java maven cache: it needs a pom.xml in the repo, and the example's pom.xml is written by the student.
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: extension
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: extension/package-lock.json
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-          cache: maven
       - run: npm ci
       - name: Java example, red → green
         run: npm run verify -- ../examples/registro-presenze/.mocoder/backlog.yaml ../examples/registro-presenze/.mocoder/solution.yaml
@@ -61,15 +61,15 @@ jobs:
       run:
         working-directory: extension
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: extension/package-lock.json
       - run: npm ci
       - run: npm run package
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: mocoder-vsix
           path: extension/mocoder.vsix
