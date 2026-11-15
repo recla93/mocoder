@@ -10,7 +10,7 @@ export function statusOf(task: Task, p: Progress): TaskStatus {
 
 export const nextTask = (b: Backlog, p: Progress) => b.tasks.find(t => statusOf(t, p) === 'available');
 
-/** Milestone appena completata da questo task, se c'è: momento di review e retrospettiva. */
+/** Milestone just completed by this task, if any: time for review and retrospective. */
 export function completedMilestone(b: Backlog, p: Progress, task: Task) {
   const all = b.tasks.filter(t => t.milestone === task.milestone);
   return all.every(t => p.done.includes(t.id)) ? b.milestones.find(m => m.id === task.milestone) : undefined;

@@ -1,0 +1,82 @@
+schema: 1
+project: broken
+title: Percorso di prova (fallisce di proposito)
+summary: Due task i cui controlli non possono passare, per provare verifica, diagnostica offline e correzione senza IA né Maven.
+level: beginner
+estimate_hours: 1
+stack: [python, pytest]
+
+milestones:
+  - id: M1
+    title: Errori di prova
+    goal: Vedere fallire i controlli e leggere i consigli offline del pannello
+
+tasks:
+  - id: T01
+    milestone: M1
+    title: Il modulo che manca
+    goal: Vedere la verifica fallire con un modulo inesistente e leggere il consiglio offline
+    learn: [python-import, pytest]
+    theory: |
+      Questo percorso **non si completa**: esiste per provare cosa succede quando un controllo
+      fallisce. Il test sotto importa un modulo che nessun task crea: la verifica fallisce sempre
+      con `ModuleNotFoundError`, e il pannello deve spiegarti cosa dice l'errore senza IA.
+      Quando hai letto il consiglio, hai finito: passa al task successivo, che fallisce in modo diverso.
+    search:
+      - "python modulenotfounderror import path sys.path"
+    files:
+      - path: .gitignore
+        given: true
+        content: |
+          __pycache__/
+          .pytest_cache/
+      - path: README.md
+        given: true
+        content: |
+          # Percorso di prova
+
+          Non si completa per proposito: serve a esercitare i percorsi di fallimento di mocoder
+          (verifica, diagnostica offline, correzione con backup). Il test importa un modulo che
+          non esiste: la verifica fallisce sempre, ed è il comportamento atteso.
+      - path: tests/test_broken.py
+        given: true
+        content: |
+          from spese.report import importo_totale
+
+          def test_importo():
+              assert importo_totale([]) == 0
+    hints:
+      - "La verifica di questo task fallisce per proposito: leggi il blocco 'Cosa dice l'errore'."
+      - "Il modulo spese.report non esiste e nessun task lo crea: qui il punto è il consiglio, non il codice."
+    checks:
+      - run: python -m pytest -q tests/test_broken.py
+
+  - id: T02
+    milestone: M1
+    title: Lo scheletro che resta
+    goal: Vedere la verifica fallire con una funzione ancora vuota
+    learn: [not-implemented, pytest]
+    theory: |
+      Il secondo modo tipico di restare bloccati: la funzione esiste ma lancia ancora
+      `NotImplementedError`. Il consiglio offline deve riconoscere lo scheletro e dirti
+      che va sostituito con il codice vero. Anche qui il percorso non si completa: è una prova.
+    search:
+      - "python pytest NotImplementedError skeleton"
+    files:
+      - path: totali.py
+        content: |
+          def importo_totale(righe):
+              # sostituisci con il codice vero... oppure lascialo: qui si prova solo l'errore
+              raise NotImplementedError("TODO")
+      - path: tests/test_totali.py
+        given: true
+        content: |
+          from totali import importo_totale
+
+          def test_somma():
+              assert importo_totale([(3, 2)]) == 6
+    hints:
+      - "L'errore è NotImplementedError: lo scheletro va sostituito con il codice vero."
+      - "Anche questo task non si completa: serve solo a vedere il consiglio 'C'è ancora uno scheletro'."
+    checks:
+      - run: python -m pytest -q tests/test_totali.py

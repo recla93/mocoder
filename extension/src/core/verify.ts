@@ -7,12 +7,12 @@ import { passed, runChecks, type CheckResult } from './checks.ts';
 
 export type Log = (line: string) => void;
 
-/** red: i controlli passano già senza lavoro. green: falliscono anche con la soluzione. */
+/** red: the checks already pass without work. green: they fail even with the solution. */
 export interface VerifyFailure { taskId: string; kind: 'red' | 'green'; output: string }
 
 const tail = (rs: CheckResult[]) => rs.map(r => `$ ${r.check.run}\n${r.output}`).join('\n').slice(-3000);
 
-/** Simula l'utente task dopo task in una cartella temporanea. null se tutto è coerente. */
+/** Simulates the user task by task in a temporary folder. null if everything is consistent. */
 export async function redGreen(backlog: Backlog, solution: Solution, log: Log): Promise<VerifyFailure | null> {
   const root = mkdtempSync(join(tmpdir(), 'mocoder-verify-'));
   try {
@@ -20,16 +20,16 @@ export async function redGreen(backlog: Backlog, solution: Solution, log: Log): 
       prepareTask(root, t, true);
       const red = await runChecks(root, t.checks);
       if (passed(red)) {
-        log(`FAIL ${t.id}  i check passano già prima del lavoro: non verificano niente`);
+        log(`FAIL ${t.id}  the checks already pass before the work: they verify nothing`);
         return { taskId: t.id, kind: 'red', output: tail(red) };
       }
       applySolution(root, solution.tasks[t.id]);
       const green = await runChecks(root, t.checks);
       if (!passed(green)) {
-        log(`FAIL ${t.id}  i check falliscono anche con la soluzione\n${tail(green)}`);
+        log(`FAIL ${t.id}  the checks fail even with the solution\n${tail(green)}`);
         return { taskId: t.id, kind: 'green', output: tail(green) };
       }
-      log(`OK   ${t.id}  rosso → verde  (${t.title})`);
+      log(`OK   ${t.id}  red → green  (${t.title})`);
     }
     return null;
   } finally {

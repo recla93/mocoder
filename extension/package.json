@@ -1,8 +1,8 @@
 {
   "name": "mocoder",
   "displayName": "mocoder",
-  "description": "Un tutor che ti guida a costruire a mano il tuo progetto, task dopo task.",
-  "version": "0.1.0",
+  "description": "A tutor that guides you to build your project by hand, task after task.",
+  "version": "0.2.0",
   "publisher": "mocoder",
   "license": "UNLICENSED",
   "type": "module",
@@ -39,37 +39,42 @@
     "commands": [
       {
         "command": "mocoder.copyPlannerPrompt",
-        "title": "Copia il prompt per creare un backlog",
+        "title": "Copy the prompt to create a backlog",
         "category": "mocoder"
       },
       {
         "command": "mocoder.import",
-        "title": "Importa backlog",
+        "title": "Import backlog",
         "category": "mocoder"
       },
       {
         "command": "mocoder.verify",
-        "title": "Verifica il task corrente",
+        "title": "Verify the current task",
         "category": "mocoder"
       },
       {
         "command": "mocoder.verifyBacklog",
-        "title": "Verifica il backlog (rosso → verde)",
+        "title": "Verify the backlog (red → green)",
         "category": "mocoder"
       },
       {
         "command": "mocoder.configureAI",
-        "title": "Configura l'IA",
+        "title": "Configure AI",
+        "category": "mocoder"
+      },
+      {
+        "command": "mocoder.addFallbackKey",
+        "title": "Add a backup API key",
         "category": "mocoder"
       },
       {
         "command": "mocoder.plan",
-        "title": "Crea un percorso con l'IA",
+        "title": "Create a path with AI",
         "category": "mocoder"
       },
       {
         "command": "mocoder.review",
-        "title": "Chiedi una review del task",
+        "title": "Ask for a task review",
         "category": "mocoder"
       }
     ],
@@ -79,17 +84,17 @@
         "mocoder.guidance": {
           "type": "string",
           "enum": [
-            "guidato",
-            "suggerimenti",
-            "autonomo"
+            "guided",
+            "hints",
+            "autonomous"
           ],
           "enumDescriptions": [
-            "Teoria sempre visibile, scheletri dei file, tutti i suggerimenti",
-            "Teoria su richiesta, scheletri, la soluzione chiede conferma",
-            "Solo obiettivo e controlli: niente scheletri né suggerimenti"
+            "Theory always visible, file skeletons, every hint",
+            "Theory on request, skeletons, the solution asks for confirmation",
+            "Only the goal and the checks: no skeletons, no hints"
           ],
-          "default": "guidato",
-          "description": "Quanto ti aiuta il tutor."
+          "default": "guided",
+          "description": "How much the tutor helps you."
         },
         "mocoder.ai.provider": {
           "type": "string",
@@ -99,31 +104,54 @@
           ],
           "enumDescriptions": [
             "Anthropic (Claude)",
-            "Qualsiasi API OpenAI-compatibile: OpenAI, OpenRouter, Groq, LM Studio, Ollama"
+            "Any OpenAI-compatible API: OpenAI, OpenRouter, Groq, LM Studio, Ollama"
           ],
           "default": "anthropic",
-          "description": "Provider dell'IA. Più comodo: comando \"mocoder: Configura l'IA\"."
+          "description": "AI provider. Easier: the command \"mocoder: Configure AI\"."
         },
         "mocoder.ai.baseUrl": {
           "type": "string",
           "default": "",
-          "description": "Indirizzo dell'API. Vuoto per Anthropic; es. http://localhost:11434/v1 per Ollama."
+          "description": "API address. Empty for Anthropic; e.g. http://localhost:11434/v1 for Ollama."
         },
         "mocoder.ai.model": {
           "type": "string",
           "default": "claude-opus-5-5",
-          "description": "Modello per il Planner e le review."
+          "description": "Model for the Planner and the reviews."
         },
         "mocoder.ai.mentorModel": {
           "type": "string",
           "default": "",
-          "description": "Modello per le domande al tutor. Vuoto = lo stesso di mocoder.ai.model; un modello economico o locale fa risparmiare."
+          "description": "Model for the tutor questions. Empty = the same as mocoder.ai.model; a cheap or local model saves money."
         },
         "mocoder.ai.monthlyTokenBudget": {
           "type": "number",
           "default": 0,
           "minimum": 0,
-          "description": "Token massimi al mese (ingresso + uscita). 0 = nessun limite."
+          "description": "Maximum tokens per month (input + output). 0 = no limit."
+        },
+        "mocoder.ai.fallback.provider": {
+          "type": "string",
+          "enum": [
+            "anthropic",
+            "openai"
+          ],
+          "enumDescriptions": [
+            "Anthropic (Claude)",
+            "Any OpenAI-compatible API: OpenAI, OpenRouter, Groq, LM Studio, Ollama"
+          ],
+          "default": "openai",
+          "description": "Provider of the backup API key. Easier: the command \"mocoder: Add a backup API key\"."
+        },
+        "mocoder.ai.fallback.baseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "API address of the backup key. Empty for Anthropic."
+        },
+        "mocoder.ai.fallback.model": {
+          "type": "string",
+          "default": "",
+          "description": "Model of the backup key. Empty = no backup: mocoder keeps using the primary provider."
         }
       }
     }
@@ -150,7 +178,7 @@
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": false,
-      "description": "mocoder esegue i comandi dei controlli dei task: serve una cartella attendibile."
+      "description": "mocoder runs the task check commands: a trusted folder is required."
     },
     "virtualWorkspaces": false
   }

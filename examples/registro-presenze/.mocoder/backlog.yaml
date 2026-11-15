@@ -4,7 +4,7 @@ title: Registro presenze
 summary: >
   Un programma a riga di comando per registrare studenti e presenze di una classe,
   con salvataggio su file. Costruito passo passo con test automatici, come in un team vero.
-level: principiante
+level: beginner
 estimate_hours: 10
 stack: [java-21, maven, junit-5]
 conventions:

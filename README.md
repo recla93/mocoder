@@ -1,79 +1,93 @@
 # mocoder
 
-Un tutor dentro VS Code che ti fa costruire **a mano** il progetto che hai in testa,
-task dopo task: teoria, suggerimenti a scala, controlli automatici, un commit per task.
+A tutor inside VS Code that makes you build **by hand** the project you have in mind,
+task after task: theory, scaled hints, automated checks, one commit per task.
 
-Architettura e roadmap: [docs/ARCHITETTURA.md](docs/ARCHITETTURA.md).
+Architecture and roadmap: [docs/ARCHITETTURA.md](docs/ARCHITETTURA.md).
 
-## Installare
+## Installing
 
-Il pacchetto si crea con `npm run package` nella cartella `extension/` (produce `extension/mocoder.vsix`), poi:
+The package is built with `npm run package` in the `extension/` folder (it produces `extension/mocoder.vsix`), then:
 
 ```bash
 code --install-extension extension/mocoder.vsix
 ```
 
-In alternativa: VS Code → Estensioni → menu `…` → *Installa da VSIX…*. mocoder funziona solo nelle cartelle
-attendibili, perché esegue i comandi dei controlli.
+Alternatively: VS Code → Extensions → `…` menu → *Install from VSIX…*. mocoder only works in
+trusted folders, because it runs the check commands.
 
-## Come funziona
+## How it works
 
-1. Apri una cartella vuota → pannello **mocoder** → *Crea il prompt*: descrivi l'idea.
-2. Incolla il prompt nel tuo LLM (Claude, ChatGPT, locale…) e copia tutta la risposta.
-3. *Importa la risposta*: mocoder valida backlog e soluzione e, se vuoi, verifica che ogni
-   controllo fallisca prima del lavoro e passi dopo.
-4. Per ogni task: leggi la teoria, *Prepara e apri i file*, scrivi il codice, *Verifica*.
+1. Open an empty folder → **mocoder** panel → *Create the prompt*: describe your idea.
+2. Paste the prompt into your LLM (Claude, ChatGPT, local…) and copy the whole answer.
+3. *Import the answer*: mocoder validates backlog and solution and, if you want, verifies that every
+   check fails before the work and passes after.
+4. For each task: read the theory, *Prepare and open the files*, write the code, *Verify*.
 
-Livello di guida (`mocoder.guidance`): `guidato`, `suggerimenti`, `autonomo`.
+Guidance level (`mocoder.guidance`): `guided`, `hints`, `autonomous`.
 
-**Fondamenta garantite:** il prompt chiede struttura delle cartelle, file di build spiegati, `.gitignore`, README,
-configurazione senza segreti, database con schema versionato e query parametrizzate, sicurezza e convenzioni.
-Le regole certe sono anche controllate all'import (`.gitignore`, `README.md`, file di build per lo strumento usato,
-plugin e dipendenze Maven con versione fissata, schema SQL in un file `.sql`); le regole del progetto (`conventions`)
-restano visibili nel pannello e il Reviewer le verifica.
+**Guaranteed foundations:** the prompt asks for folder structure, explained build files, `.gitignore`, README,
+configuration without secrets, a database with a versioned schema and parameterized queries, security and conventions.
+The certain rules are also checked at import (`.gitignore`, `README.md`, build file for the tool used,
+Maven plugins and dependencies with a pinned version, SQL schema in a `.sql` file); the project rules (`conventions`)
+stay visible in the panel and the Reviewer checks them.
 
-**Sicurezza:** i controlli dei task sono comandi eseguiti sul tuo computer e il backlog può arrivare da un chatbot.
-Prima della prima verifica mocoder mostra tutti i comandi (⚠ su quelli insoliti) e chiede di consentirli; l'approvazione
-vale per quella cartella e decade se i comandi cambiano, anche quando li riscrive il Planner.
+**Security:** the task checks are commands executed on your computer and the backlog can come from a chatbot.
+Before the first verification mocoder shows you all the commands (⚠ on the unusual ones) and asks you to allow them;
+the approval holds for that folder and expires if the commands change, even when the Planner rewrites them.
 
-**Senza IA e senza rete** funziona tutto tranne il tutor: il prompt si incolla in qualsiasi chatbot, la risposta
-si importa dagli appunti (gli errori di formato tipici dei chatbot vengono corretti da soli) e, quando un controllo
-fallisce, il pannello spiega l'errore leggendo l'output di test e compilatore ("Cosa dice l'errore").
+### Three roads, from the cheapest
 
-### Con l'IA (opzionale)
+| Road | Account | Model | What is missing |
+|---|---|---|---|
+| **Free, no account** | none | the web chatbot you already use | the in-editor tutor; verification, checks and "What the error says" still work |
+| **Free API** | one (Gemini, AI Studio, no card) | `gemini-flash-latest` | daily quota and reduced context (15k characters): the free plan cannot hold a full context |
+| **Pay-as-you-go API** | one (DeepSeek) | `deepseek-flash` | a few cents a month (~$0.3 per million input tokens) |
 
-Comando **mocoder: Configura l'IA**: Claude (Anthropic), Ollama in locale o qualsiasi API OpenAI-compatibile.
-Le chiavi restano nel portachiavi del sistema. Poi:
+The panel proposes the three roads when the AI is not configured yet, and you choose once. The keys stay in the
+system keychain: mocoder does not resell tokens and does not act as an intermediary.
 
-- **Crea il percorso con l'IA**: il Planner valuta la fattibilità, scrive backlog e soluzione e si corregge da solo se lo schema non torna.
-- **Tutor IA** nel pannello: domande sul task e "Spiegami l'errore". Risponde con domande e concetti, non con la soluzione.
-- **Review** a fine task e a fine milestone, come in una pull request.
-- **Verifica del backlog**: se un controllo non funziona, *Fai correggere al Planner* (fino a 2 tentativi per task)
-  oppure *Copia la richiesta per un LLM esterno* e reimporta la risposta. Correggere i test richiede un modello capace:
-  i modelli gratuiti piccoli vanno bene per il tutor, meno per questo.
+**Without AI and without network** everything works except the tutor: the prompt is pasted into any chatbot, the
+answer is imported from the clipboard (the typical format errors of chatbots are fixed on their own) and, when a check
+fails, the panel explains the error by reading the test and compiler output ("What the error says").
 
-Impostazioni: `mocoder.ai.model` (default `claude-opus-5-5`), `mocoder.ai.mentorModel` (un modello economico o locale
-per le domande), `mocoder.ai.monthlyTokenBudget` (0 = senza limite).
+### With AI (optional)
 
-**Gratis senza appesantire il PC:** Ollama con un modello cloud del piano gratuito, es. `gemma4:31b-cloud`
-(gira sui server di Ollama; serve aver fatto l'accesso in Ollama). Con i modelli locali alza il contesto
-(`OLLAMA_CONTEXT_LENGTH=32768`): il prompt del Planner contiene lo schema intero.
-I modelli gratuiti di OpenCode non si possono usare da client esterni (rispondono 403).
+Command **mocoder: Configure the AI**: the two API roads above, plus Claude (Anthropic), local Ollama or any
+OpenAI-compatible API. The keys stay in the system keychain. Then:
+
+- **Create the path with AI**: the Planner assesses feasibility, writes backlog and solution and corrects itself if the schema does not fit.
+- **AI Tutor** in the panel: questions about the task and "Explain the error". It answers with questions and concepts, not with the solution.
+- **Review** at the end of a task and of a milestone, as in a pull request.
+- **Backlog verification**: if a check does not work, *Have the Planner fix it* (up to 2 attempts per task)
+  or *Copy the request for an external LLM* and re-import the answer. Fixing the tests requires a capable model:
+  small free models are fine for the tutor, less so for this.
+
+Settings: `mocoder.ai.model` (default `claude-opus-5-5`), `mocoder.ai.mentorModel` (a cheap or local model
+for questions), `mocoder.ai.monthlyTokenBudget` (0 = no limit).
+
+**Free without weighing down the PC:** Ollama with a cloud model from the free plan, e.g. `gemma4:31b-cloud`
+(it runs on Ollama's servers; you need to have signed in to Ollama). With local models raise the context
+(`OLLAMA_CONTEXT_LENGTH=32768`): the Planner prompt contains the whole schema.
+The free models of OpenCode cannot be used from external clients (they answer 403).
+
+**To avoid:** the free plan of Groq (8k tokens per minute and 200k per day: the tutor's context exhausts it in
+a few questions) and the `:free` models of OpenRouter (unstable endpoints, sometimes without tool support).
 
 ## Repository
 
-| Cartella | Contenuto |
+| Folder | Content |
 |---|---|
-| `schema/` | Formato del backlog e della soluzione (JSON Schema): il contratto con qualsiasi LLM |
-| `prompts/` | Prompt di Planner, Mentor e Reviewer |
-| `examples/` | Percorsi completi e verificati: Java (`registro-presenze`), Python (`analisi-spese`) |
-| `extension/src/core/` | Logica pura e testata: backlog, file, controlli, progressi, verifica rosso/verde |
-| `extension/src/ai/` | Provider IA (Claude, OpenAI-compatibile), budget, ruoli |
-| `extension/src/` | Estensione VS Code: pannello tutor e comandi |
+| `schema/` | Backlog and solution format (JSON Schema): the contract with any LLM |
+| `prompts/` | Planner, Mentor and Reviewer prompts |
+| `examples/` | Complete and verified paths: Java (`registro-presenze`), Python (`analisi-spese`). Plus `broken`: a test path that fails on purpose, to exercise verification, diagnostics and fixing |
+| `extension/src/core/` | Pure, tested logic: backlog, files, checks, progress, red/green verification |
+| `extension/src/ai/` | AI providers (Claude, OpenAI-compatible), budget, roles |
+| `extension/src/` | VS Code extension: tutor panel and commands |
 
-## Sviluppo
+## Development
 
-Serve Node ≥ 22.18 (esegue TypeScript direttamente).
+Requires Node ≥ 22.18 (it runs TypeScript directly).
 
 ```bash
 cd extension && npm install
@@ -91,11 +105,10 @@ npm run typecheck && npm run build
 npm run package
 ```
 
-Verifica di un backlog (schema + rosso/verde su ogni task; servono gli strumenti del progetto, es. Maven o pytest):
+Verify a backlog (schema + red/green on every task; the project's tools are needed, e.g. Maven or pytest):
 
 ```bash
 npm run verify -- ../examples/analisi-spese/.mocoder/backlog.yaml ../examples/analisi-spese/.mocoder/solution.yaml
 ```
 
-Provare l'estensione: apri `extension/` in VS Code e premi F5, poi apri una cartella con dentro
-una copia di `examples/<nome>/.mocoder/`.
+Trying the extension: open `extension/` in VS Code and press F5, then open a folder with a copy of `examples/<name>/.mocoder/`.

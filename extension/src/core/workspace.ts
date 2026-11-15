@@ -7,11 +7,11 @@ export const BACKLOG = `${DIR}/backlog.yaml`;
 export const SOLUTION = `${DIR}/solution.yaml`;
 export const PROGRESS = `${DIR}/progress.json`;
 
-/** Percorso assoluto dentro root; lancia se esce dal progetto (difesa oltre allo schema). */
+/** Absolute path inside root; throws if it leaves the project (defense beyond the schema). */
 export function inside(root: string, rel: string): string {
   const abs = resolve(root, rel);
   const r = relative(resolve(root), abs);
-  if (!r || r.startsWith('..') || isAbsolute(r)) throw new Error(`percorso fuori dal progetto: ${rel}`);
+  if (!r || r.startsWith('..') || isAbsolute(r)) throw new Error(`path outside the project: ${rel}`);
   return abs;
 }
 
@@ -22,8 +22,8 @@ function write(root: string, rel: string, content: string) {
 }
 
 /**
- * Prepara i file del task: quelli forniti vengono (ri)scritti, quelli dell'utente
- * creati solo se mancano (con lo scheletro se withSkeleton). Restituisce i file dell'utente.
+ * Prepares the task files: provided ones are (re)written, the user's ones
+ * created only if missing (with the skeleton if withSkeleton). Returns the user's files.
  */
 export function prepareTask(root: string, task: Task, withSkeleton: boolean): string[] {
   const editable: string[] = [];

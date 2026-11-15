@@ -4,7 +4,7 @@ title: Analisi spese
 summary: >
   Un programma che legge le tue spese da un file CSV e stampa i totali per categoria
   e per mese. Primo passo nell'analisi dati con Python, senza librerie esterne.
-level: principiante
+level: beginner
 estimate_hours: 5
 stack: [python-3.11, pytest]
 conventions:

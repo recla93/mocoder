@@ -8,22 +8,22 @@ const MAX_OUTPUT = 20_000;
 const WINDOWS = process.platform === 'win32';
 
 /**
- * Ferma il comando e tutto ciò che ha lanciato. Fermare solo la shell non basta: il programma figlio
- * (un ciclo infinito dello studente, la JVM di Maven) resterebbe vivo e terrebbe aperto l'output.
+ * Stops the command and everything it launched. Stopping only the shell is not enough: the child program
+ * (a student's infinite loop, Maven's JVM) would stay alive and keep the output open.
  */
 function killTree(pid: number | undefined) {
   if (!pid) return;
   if (WINDOWS) spawn('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore' });
-  else try { process.kill(-pid, 'SIGKILL'); } catch { /* già terminato */ }
+  else try { process.kill(-pid, 'SIGKILL'); } catch { /* already terminated */ }
 }
 
 const utf8 = new TextDecoder('utf-8', { fatal: true });
-// Su Windows i programmi (Python, Java) scrivono nella codifica ANSI; i messaggi di cmd in quella OEM.
-// shortcut: si decodifica tutto come Windows-1252, quindi nei messaggi di cmd le lettere accentate si
-// rovinano ("non Š riconosciuto"); le regole di diagnose ne tengono conto.
+// On Windows programs (Python, Java) write in ANSI encoding; cmd messages in OEM encoding.
+// shortcut: everything is decoded as Windows-1252, so in cmd messages accented letters get
+// mangled ("non Š riconosciuto"); the diagnose rules take this into account.
 const fallback = new TextDecoder(WINDOWS ? 'windows-1252' : 'latin1');
 
-/** UTF-8 se valido, altrimenti la codifica tipica del sistema: niente "�" nell'output degli studenti. */
+/** UTF-8 if valid, otherwise the system's typical encoding: no mangled characters in the students' output. */
 export function decodeOutput(buf: Buffer): string {
   try {
     return utf8.decode(buf);
@@ -34,7 +34,7 @@ export function decodeOutput(buf: Buffer): string {
 
 function runOne(root: string, check: Check, timeoutMs: number): Promise<CheckResult> {
   return new Promise(done => {
-    // detached su Unix crea un gruppo di processi, così kill(-pid) li ferma tutti
+    // detached on Unix creates a process group, so kill(-pid) stops them all
     const child = spawn(check.run, { cwd: root, shell: true, stdio: ['ignore', 'pipe', 'pipe'], detached: !WINDOWS });
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; killTree(child.pid); }, timeoutMs);
@@ -47,15 +47,15 @@ function runOne(root: string, check: Check, timeoutMs: number): Promise<CheckRes
       clearTimeout(timer);
       const stdout = decodeOutput(Buffer.concat(outBufs));
       const all = decodeOutput(Buffer.concat(allBufs));
-      if (timedOut) return done({ check, ok: false, output: (all + `\n[interrotto dopo ${timeoutMs / 1000}s]`).slice(-MAX_OUTPUT) });
+      if (timedOut) return done({ check, ok: false, output: (all + `\n[stopped after ${timeoutMs / 1000}s]`).slice(-MAX_OUTPUT) });
       const expected = !check.expect || new RegExp(check.expect).test(stdout);
-      const missing = code === 0 && !expected ? `\n[nell'output manca: ${check.expect}]` : '';
+      const missing = code === 0 && !expected ? `\n[output is missing: ${check.expect}]` : '';
       done({ check, ok: code === 0 && expected, output: (all + missing).slice(-MAX_OUTPUT) });
     });
   });
 }
 
-/** Esegue i check in ordine e si ferma al primo che fallisce. */
+/** Runs the checks in order and stops at the first one that fails. */
 export async function runChecks(root: string, checks: Check[], timeoutMs = 300_000): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
   for (const c of checks) {

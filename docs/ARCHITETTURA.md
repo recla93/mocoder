@@ -1,53 +1,53 @@
-# mocoder — Architettura
+# mocoder — Architecture
 
-> Un tutor che ti fa costruire **a mano** il progetto che hai in testa, task dopo task,
-> insegnandoti come si lavora davvero: backlog, branch, test, review, retrospettiva.
+> A tutor that makes you build **by hand** the project you have in mind, task after task,
+> teaching you how work is really done: backlog, branches, tests, review, retrospective.
 
-## 1. Principio guida
+## 1. Guiding principle
 
-Il valore di mocoder è il **tutoring**, non l'editor. Quindi:
+The value of mocoder is the **tutoring**, not the editor. So:
 
-- **Editor, file explorer, terminale, git, debugger, linguaggi → li prendiamo dalla piattaforma.**
-- **Backlog, teoria, suggerimenti, controlli, progressi, obiettivi → li scriviamo noi.**
+- **Editor, file explorer, terminal, git, debugger, languages → we take them from the platform.**
+- **Backlog, theory, hints, checks, progress, goals → we write them ourselves.**
 
-"Prendere in prestito" qui non è rubare: costruiamo **sopra** piattaforme open source
-fatte apposta per essere estese (come fanno Cursor, Gitpod, Theia, VSCodium).
+"Borrowing" here is not stealing: we build **on top of** open source platforms
+made to be extended (as Cursor, Gitpod, Theia, VSCodium do).
 
-## 2. Piattaforma: estensione VS Code (compatibile Open VSX)
+## 2. Platform: VS Code extension (Open VSX compatible)
 
-| Serve all'utente | Chi lo fornisce | Licenza |
+| What the user needs | Who provides it | License |
 |---|---|---|
-| Editor, explorer, ricerca, terminale | VS Code / VSCodium (Code-OSS) | MIT |
-| Git, diff, branch | estensione git integrata | MIT |
-| Java: package, classi, Maven/Gradle | *Extension Pack for Java* (Red Hat JDT LS) | EPL / MIT |
+| Editor, explorer, search, terminal | VS Code / VSCodium (Code-OSS) | MIT |
+| Git, diff, branch | built-in git extension | MIT |
+| Java: packages, classes, Maven/Gradle | *Extension Pack for Java* (Red Hat JDT LS) | EPL / MIT |
 | Python | Python ext + basedpyright / Jedi | MIT |
-| Notebook (analisi dati, BI) | Jupyter integrato | MIT |
-| Ambienti riproducibili, lab cybersecurity | Dev Containers (`devcontainer.json`) | standard aperto |
-| Versione web / self-hosted (futuro) | Eclipse Theia o code-server | EPL / MIT |
+| Notebooks (data analysis, BI) | built-in Jupyter | MIT |
+| Reproducible environments, cybersecurity labs | Dev Containers (`devcontainer.json`) | open standard |
+| Web / self-hosted version (future) | Eclipse Theia or code-server | EPL / MIT |
 
-Regole sulle licenze:
-- **Dipendere** da un'estensione (o chiamare i suoi comandi) è sempre ok.
-- **Copiare codice** MIT/Apache: ok con attribuzione. Codice GPL: non copiarlo (obbliga tutto il progetto a GPL).
-- Estensioni proprietarie Microsoft (Pylance, C# Dev Kit, marketplace MS) non si possono usare
-  fuori da VS Code: scegliamo sempre alternative aperte, così Theia/VSCodium funzionano.
+License rules:
+- **Depending** on an extension (or calling its commands) is always ok.
+- **Copying** MIT/Apache code: ok with attribution. GPL code: do not copy it (it forces the whole project to GPL).
+- Proprietary Microsoft extensions (Pylance, C# Dev Kit, MS marketplace) cannot be used
+  outside VS Code: we always choose open alternatives, so that Theia/VSCodium work.
 
-**Gestione del work tree** (creare file, package Java, scheletri) = API di VS Code
-(`workspace.fs`, `WorkspaceEdit`) + comandi dell'estensione Java + `git` per i checkpoint.
-Niente workspace manager scritto da zero.
+**Work tree management** (creating files, Java packages, skeletons) = VS Code APIs
+(`workspace.fs`, `WorkspaceEdit`) + Java extension commands + `git` for checkpoints.
+No workspace manager written from scratch.
 
-## 3. Schema dei componenti
+## 3. Component schema
 
 ```mermaid
 flowchart LR
-  U([Utente]) --> P[Pannello Tutor<br/>webview]
-  U --> ED[Editor VS Code<br/>+ estensioni linguaggio]
+  U([User]) --> P[Tutor Panel<br/>webview]
+  U --> ED[VS Code Editor<br/>+ language extensions]
 
-  subgraph EXT[Estensione mocoder]
-    P --> BE[Backlog Engine<br/>carica, valida, stati task]
-    BE --> CR[Check Runner<br/>test, exit code, file]
-    BE --> WS[Workspace<br/>scaffold file/package<br/>checkpoint git]
-    P --> MT[Mentor<br/>scala suggerimenti]
-    BE --> PR[(Progressi<br/>.mocoder/progress.json)]
+  subgraph EXT[mocoder Extension]
+    P --> BE[Backlog Engine<br/>loads, validates, task states]
+    BE --> CR[Check Runner<br/>tests, exit code, files]
+    BE --> WS[Workspace<br/>scaffold files/packages<br/>git checkpoints]
+    P --> MT[Mentor<br/>scaled hints]
+    BE --> PR[(Progress<br/>.mocoder/progress.json)]
     MT --> AI[AI Gateway]
     PL[Planner<br/>idea → backlog] --> AI
     RV[Reviewer<br/>code review] --> AI
@@ -55,134 +55,134 @@ flowchart LR
   end
 
   AI --> LLM1[Anthropic]
-  AI --> LLM2[OpenAI-compatibile<br/>OpenAI, OpenRouter,<br/>Ollama, LM Studio]
-  KN --> V[(Vault markdown)]
-  KN --> MCPX[Server MCP esterni<br/>es. NeuRAG]
-  MCPS[Server MCP mocoder<br/>stato tutor] -.-> EXTAG([LLM/agent esterni<br/>Claude, Cursor...])
+  AI --> LLM2[OpenAI-compatible<br/>OpenAI, OpenRouter,<br/>Ollama, LM Studio]
+  KN --> V[(Markdown vault)]
+  KN --> MCPX[External MCP servers<br/>e.g. NeuRAG]
+  MCPS[mocoder MCP server<br/>tutor state] -.-> EXTAG([External LLMs/agents<br/>Claude, Cursor...])
   BE -.-> MCPS
   CR --> ED
   WS --> ED
 ```
 
-### Componenti
+### Components
 
-| Componente | Responsabilità | Note |
+| Component | Responsibility | Notes |
 |---|---|---|
-| **Backlog Engine** | Legge `.mocoder/backlog.yaml`, lo valida con JSON Schema, gestisce gli stati dei task (`locked → available → in_progress → done`) e le dipendenze | Cuore del sistema. Funziona **anche senza IA** |
-| **Check Runner** | Esegue i controlli del task (comando di test, file esistente, regex sull'output) tramite Tasks API di VS Code | Il task è "fatto" solo se i controlli passano |
-| **Pannello Tutor** | Teoria, obiettivo del task, suggerimenti, progressi, milestone | Webview: HTML + variabili CSS di VS Code; markdown con il renderer di VS Code (`markdown.api.render`) |
-| **Mentor** | Suggerimenti a scala: concetto → indizio → frammento → soluzione. Domande socratiche, non risposte | Livello di guida scelto dall'utente, non scritto nel backlog |
-| **Planner** | Idea → fattibilità (livello, tempo, versione ridotta) → backlog. Interno via API, oppure "copia prompt" per LLM esterno e import del file | Stesso validatore per entrambe le strade, con ciclo di "riparazione" (max 2 tentativi) |
-| **Reviewer** | Review del codice a fine task/milestone contro i criteri del task | Insegna cosa guarda un senior in una PR |
-| **Workspace** | Crea gli scheletri dichiarati nel task, un commit per task, branch per milestone | Usa git dell'utente: impara git lavorando |
-| **AI Gateway** | Due adattatori: Anthropic + OpenAI-compatibile (copre quasi tutto, Ollama incluso). Chiavi nel `SecretStorage` di VS Code. Contatore token e budget | Modello forte per Planner/Reviewer, economico o locale per i suggerimenti |
-| **Knowledge** | Teoria dal vault (cartella markdown, tag nel frontmatter = chiavi `learn` del task). Poi MCP client e web, sempre con fonte citata | Il vault ha la precedenza su internet |
-| **Progressi** | Task fatti, competenze, errori ricorrenti, suggerimenti usati, ripasso | JSON per progetto + JSON globale. SQLite solo se servono statistiche tra progetti |
-| **Server MCP mocoder** (fase 3) | Espone a LLM esterni `get_current_task`, `get_backlog`, `run_checks`, `get_progress` | Così qualsiasi IA "sa cosa fare e dove" senza uscire dal percorso |
+| **Backlog Engine** | Reads `.mocoder/backlog.yaml`, validates it with JSON Schema, manages task states (`locked → available → in_progress → done`) and dependencies | Heart of the system. It works **even without AI** |
+| **Check Runner** | Runs the task checks (test command, existing file, regex on the output) through the VS Code Tasks API | The task is "done" only if the checks pass |
+| **Tutor Panel** | Theory, task goal, hints, progress, milestones | Webview: HTML + VS Code CSS variables; markdown with the VS Code renderer (`markdown.api.render`) |
+| **Mentor** | Scaled hints: concept → hint → snippet → solution. Socratic questions, not answers | Guidance level chosen by the user, not written in the backlog |
+| **Planner** | Idea → feasibility (level, time, reduced version) → backlog. Built-in via API, or "copy prompt" for an external LLM and file import | Same validator for both roads, with a "repair" cycle (max 2 attempts) |
+| **Reviewer** | Code review at the end of a task/milestone against the task criteria | Teaches what a senior looks at in a PR |
+| **Workspace** | Creates the skeletons declared in the task, one commit per task, branch per milestone | Uses the user's git: you learn git by working |
+| **AI Gateway** | Two adapters: Anthropic + OpenAI-compatible (covers almost everything, Ollama included). Keys in the VS Code `SecretStorage`. Token counter and budget. No intermediary: no token resold by mocoder | Strong model for Planner/Reviewer, cheap or local for the hints. Three roads proposed in the panel: no account (web chatbot), free API (Gemini), pay-as-you-go API (DeepSeek) |
+| **Knowledge** | Theory from the vault (markdown folder, tags in the frontmatter = the task's `learn` keys). Then MCP client and web, always with a cited source | The vault takes precedence over the internet |
+| **Progress** | Tasks done, skills, recurring errors, hints used, review | JSON per project + global JSON. SQLite only if cross-project statistics are needed |
+| **mocoder MCP server** (phase 3) | Exposes to external LLMs `get_current_task`, `get_backlog`, `run_checks`, `get_progress` | So any AI "knows what to do and where" without leaving the path |
 
-## 4. Insegnare *come si lavora*
+## 4. Teaching *how work is done*
 
-Il backlog non è una lista di esercizi: simula il flusso di un team vero.
+The backlog is not a list of exercises: it simulates the flow of a real team.
 
-| Pratica reale | In mocoder |
+| Real practice | In mocoder |
 |---|---|
-| Backlog, milestone/sprint | `milestones` nel backlog, obiettivo dichiarato per ognuna |
-| Issue con criteri di accettazione | ogni task ha `goal` + `checks` |
-| Branch per feature | branch automatico per milestone |
-| Commit piccoli e chiari | commit per task, formato Conventional Commits spiegato |
-| Test prima del merge | i check devono passare per sbloccare il task successivo |
-| Code review | Reviewer a fine milestone, commenti come in una PR |
+| Backlog, milestone/sprint | `milestones` in the backlog, a declared goal for each |
+| Issue with acceptance criteria | every task has `goal` + `checks` |
+| Branch per feature | automatic branch per milestone |
+| Small, clear commits | one commit per task, Conventional Commits format explained |
+| Tests before merge | the checks must pass to unlock the next task |
+| Code review | Reviewer at the end of a milestone, comments as in a PR |
 | Definition of Done | check + review |
-| Retrospettiva | a fine milestone: cosa hai imparato, dove hai usato più suggerimenti, ripasso |
+| Retrospective | at the end of a milestone: what you learned, where you used the most hints, review |
 
-### Livelli di guida (impostazione utente, cambiabile in ogni momento)
+### Guidance levels (user setting, changeable at any time)
 
-| Livello | Teoria | Suggerimenti | Scaffold |
+| Level | Theory | Hints | Scaffold |
 |---|---|---|---|
-| **Guidato** | sempre visibile | tutti, uno alla volta | file e package creati |
-| **Suggerimenti** | su richiesta | limitati, l'ultimo (soluzione) costa | solo struttura |
-| **Autonomo** | su richiesta | nessuno, solo review | nessuno |
+| **Guided** | always visible | all of them, one at a time | files and packages created |
+| **Hints** | on request | limited, the last one (solution) costs | structure only |
+| **Autonomous** | on request | none, review only | none |
 
-## 5. Formato del backlog
+## 5. Backlog format
 
-File: `.mocoder/backlog.yaml` dentro il progetto, versionato in git.
-Validato da `schema/backlog.schema.json`.
+File: `.mocoder/backlog.yaml` inside the project, versioned in git.
+Validated by `schema/backlog.schema.json`.
 
 ```yaml
 schema: 1
 project: registro-presenze
-summary: Registro presenze per una classe, da riga di comando a API REST
+summary: Attendance register for a class, from command line to REST API
 stack: [java-21, maven, junit-5, sqlite]
-env: .devcontainer/devcontainer.json      # opzionale
+env: .devcontainer/devcontainer.json      # optional
 
 milestones:
   - id: M1
-    title: Dominio e test
-    goal: Modellare studenti e presenze con test automatici
+    title: Domain and tests
+    goal: Model students and attendance with automated tests
 
 tasks:
   - id: T03
     milestone: M1
-    title: Classe Studente
+    title: Student class
     depends_on: [T02]
-    goal: Rappresentare uno studente con email valida
-    learn: [java-record, validazione, unit-test]   # chiavi verso il vault
+    goal: Represent a student with a valid email
+    learn: [java-record, validation, unit-test]   # keys to the vault
     theory: |
-      Perché separiamo il modello dalla persistenza...
+      Why we separate the model from persistence...
     files:
-      - path: src/main/java/it/presenze/model/Student.java    # file dell'utente, con scheletro opzionale
+      - path: src/main/java/it/presenze/model/Student.java    # user file, with optional skeleton
       - path: src/test/java/it/presenze/model/StudentTest.java
-        given: true                                          # fornito, non si modifica
+        given: true                                          # provided, not modified
         content: "..."
     hints:
-      - "Un record Java è ideale per dati immutabili"
-      - "Valida nel compact constructor"
+      - "A Java record is ideal for immutable data"
+      - "Validate in the compact constructor"
       - "if (!email.contains(\"@\")) throw new IllegalArgumentException(...)"
     checks:
       - run: mvn -q test -Dtest=StudentTest
-    review: [naming, immutabilità, messaggi di errore chiari]
+    review: [naming, immutability, clear error messages]
 ```
 
-Esempio completo e verificato: `examples/registro-presenze/.mocoder/backlog.yaml`
-(validazione e check: `python tools/verify_backlog.py <backlog> --solution <cartella>`).
+Complete and verified example: `examples/registro-presenze/.mocoder/backlog.yaml`
+(validation and checks: `python tools/verify_backlog.py <backlog> --solution <folder>`).
 
-Rischio da gestire: **test generati dall'IA sbagliati**. L'utente resterebbe bloccato senza colpa.
-Contromisura (fase 2): il Planner genera anche una soluzione di riferimento nascosta e i check
-vengono eseguiti su quella prima di consegnare il backlog. Più un pulsante "check sbagliato?"
-che manda il caso al Reviewer.
+Risk to manage: **AI-generated tests that are wrong**. The user would be stuck through no fault of their own.
+Countermeasure (phase 2): the Planner also generates a hidden reference solution and the checks
+are run on it before delivering the backlog. Plus a "wrong check?" button
+that sends the case to the Reviewer.
 
-## 6. Flussi principali
+## 6. Main flows
 
-**Creazione progetto**
-1. L'utente descrive l'idea e il proprio livello.
-2. Planner: fattibile? Tempo stimato? Versione ridotta per partire?
-3. Genera il backlog (interno) oppure dà il prompt da incollare in un LLM esterno → import file.
-4. Validazione schema → riparazione automatica se serve.
-5. Creazione repo, devcontainer, primo commit.
+**Project creation**
+1. The user describes the idea and their level.
+2. Planner: feasible? Estimated time? Reduced version to start?
+3. It generates the backlog (built-in) or gives the prompt to paste into an external LLM → file import.
+4. Schema validation → automatic repair if needed.
+5. Repo creation, devcontainer, first commit.
 
-**Ciclo del task**
-1. Il pannello mostra obiettivo e teoria, l'editor apre il file del task.
-2. L'utente scrive codice e chiede suggerimenti quando serve (registrati nei progressi).
-3. "Verifica" → Check Runner → esito spiegato.
-4. Verde → commit, task successivo sbloccato. Rosso → il Mentor spiega l'errore senza dare la soluzione.
+**Task cycle**
+1. The panel shows the goal and theory, the editor opens the task's file.
+2. The user writes code and asks for hints when needed (recorded in the progress).
+3. "Verify" → Check Runner → explained outcome.
+4. Green → commit, next task unlocked. Red → the Mentor explains the error without giving the solution.
 
-**Fine milestone** → review → merge del branch → retrospettiva → ripasso.
+**End of milestone** → review → branch merge → retrospective → review.
 
 ## 7. Stack
 
-| Area | Scelta | Perché |
+| Area | Choice | Why |
 |---|---|---|
-| Linguaggio | TypeScript | è il linguaggio delle estensioni VS Code |
-| Build | esbuild | standard per le estensioni, un comando |
-| UI pannello | HTML + variabili CSS VS Code, `markdown.api.render` | tema chiaro/scuro gratis, niente framework né librerie markdown |
-| YAML / schema | `yaml`, `ajv` | librerie standard e mature |
-| IA | `@anthropic-ai/sdk` + endpoint OpenAI-compatibile via `fetch` | due adattatori coprono cloud e locale |
-| MCP | `@modelcontextprotocol/sdk` | client per il vault, server per esporre lo stato |
-| Segreti | `SecretStorage` di VS Code | portachiavi del sistema operativo |
-| Test | `node:test` sul core (Node esegue TypeScript direttamente) | la logica sta lì, zero dipendenze di test |
-| Distribuzione | VS Code Marketplace + Open VSX | Open VSX serve per VSCodium/Theia |
+| Language | TypeScript | it is the language of VS Code extensions |
+| Build | esbuild | standard for extensions, one command |
+| Panel UI | HTML + VS Code CSS variables, `markdown.api.render` | free light/dark theme, no framework or markdown library |
+| YAML / schema | `yaml`, `ajv` | standard, mature libraries |
+| AI | `@anthropic-ai/sdk` + OpenAI-compatible endpoint via `fetch` | two adapters cover cloud and local |
+| MCP | `@modelcontextprotocol/sdk` | client for the vault, server to expose the state |
+| Secrets | VS Code `SecretStorage` | operating system keychain |
+| Tests | `node:test` on the core (Node runs TypeScript directly) | the logic lives there, zero test dependencies |
+| Distribution | VS Code Marketplace + Open VSX | Open VSX is needed for VSCodium/Theia |
 
-## 8. Struttura del repository
+## 8. Repository structure
 
 ```
 mocoder/
@@ -192,28 +192,29 @@ mocoder/
   examples/
     registro-presenze/.mocoder/ backlog.yaml + solution.yaml   (Java)
     analisi-spese/.mocoder/     backlog.yaml + solution.yaml   (Python)
+    broken/.mocoder/            fails on purpose: verification and diagnostics test
   extension/
-    src/core/        backlog, workspace, checks, progress, verify  (puro, testato)
-    src/cli/         verify: schema + rosso/verde da riga di comando
-    src/view.ts      HTML del pannello
-    src/extension.ts comandi, pannello, git
-    src/ai/          providers (Anthropic SDK, OpenAI-compatibile, budget), roles (Planner, Mentor, Reviewer)
-    (src/knowledge/ arriva in fase 3)
+    src/core/        backlog, workspace, checks, progress, verify  (pure, tested)
+    src/cli/         verify: schema + red/green from the command line
+    src/view.ts      panel HTML
+    src/extension.ts commands, panel, git
+    src/ai/          providers (Anthropic SDK, OpenAI-compatible, budget), roles (Planner, Mentor, Reviewer)
+    (src/knowledge/ arrives in phase 3)
 ```
 
 ## 9. Roadmap
 
-| Fase | Contenuto | Verifica che funzioni |
+| Phase | Content | Proof it works |
 |---|---|---|
-| **0 — Carta** ✅ | Schema + prompt Planner + un backlog d'esempio generato con un LLM esterno e seguito **a mano** | Il percorso insegna davvero? Prima di scrivere codice |
-| **1 — MVP** ✅ | Estensione: backlog, pannello, check, suggerimenti dal file, progressi, commit per task, import della risposta di un LLM esterno, verifica rosso/verde. **Nessuna IA a runtime** | Un utente completa il registro presenze in Java |
-| **2 — IA** ✅ | Gateway (Claude via SDK ufficiale con fallback sui rifiuti, qualsiasi API OpenAI-compatibile, Ollama), chiavi nel portachiavi, budget mensile di token, Planner interno con correzione automatica (max 2), Mentor socratico che non riceve la soluzione finché lo studente non la apre, Reviewer per task e milestone | Da un'idea nuova a un backlog funzionante senza interventi |
-| **3 — Conoscenza** | Vault, MCP client, server MCP mocoder, ripasso a intervalli | La teoria arriva dalle tue note |
-| **4 — Domini** | Template per web, data/BI (notebook), cybersecurity (lab in container, solo bersagli locali), architettura | Un percorso completo per dominio |
-| **5 — Ovunque** | Versione web (Theia/code-server), app telefono per teoria/quiz/progressi, sincronizzazione | Studio dal telefono, codice al PC |
+| **0 — Paper** ✅ | Schema + Planner prompt + an example backlog generated with an external LLM and followed **by hand** | Does the path really teach? Before writing code |
+| **1 — MVP** ✅ | Extension: backlog, panel, checks, hints from the file, progress, one commit per task, import of an external LLM's answer, red/green verification. **No AI at runtime** | A user completes the attendance register in Java |
+| **2 — AI** ✅ | Gateway (Claude via the official SDK with fallback on refusals, any OpenAI-compatible API, Ollama), keys in the keychain, monthly token budget, built-in Planner with automatic correction (max 2), Socratic Mentor that does not receive the solution until the student opens it, Reviewer per task and milestone | From a new idea to a working backlog with no intervention |
+| **3 — Knowledge** | Vault, MCP client, mocoder MCP server, spaced review | The theory comes from your notes |
+| **4 — Domains** | Templates for web, data/BI (notebooks), cybersecurity (labs in containers, local targets only), architecture | A complete path per domain |
+| **5 — Everywhere** | Web version (Theia/code-server), phone app for theory/quiz/progress, synchronization | Study from the phone, code on the PC |
 
-## 10. Fuori scope (per ora)
+## 10. Out of scope (for now)
 
-- Editor proprio, file manager proprio, terminale proprio.
-- Backend/server centrale e account utente: tutto è locale finché non arriva la fase 5.
-- Esecuzione del codice sul telefono.
+- Our own editor, our own file manager, our own terminal.
+- Central backend/server and user accounts: everything is local until phase 5 arrives.
+- Running the code on the phone.

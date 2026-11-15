@@ -1,26 +1,26 @@
 # mocoder
 
-Un tutor dentro VS Code che ti fa costruire **a mano** il progetto che hai in testa, task dopo task:
-teoria, suggerimenti a scala, controlli automatici, un commit per task.
+A tutor inside VS Code that makes you build **by hand** the project you have in mind, task after task:
+theory, scaled hints, automated checks, one commit per task.
 
-## Iniziare
+## Getting started
 
-1. Apri una cartella vuota e clicca l'icona **mocoder** nella barra laterale.
-2. **Crea il prompt**: descrivi la tua idea; il prompt finisce negli appunti.
-3. Incollalo in qualsiasi chatbot (Claude, ChatGPT, Gemini…) e salva o copia tutta la risposta.
-4. **Importa la risposta**: mocoder carica task, teoria e controlli, e corregge da solo gli errori di formato tipici.
-5. Per ogni task: leggi la teoria, **Prepara e apri i file**, scrivi il codice, **Verifica**.
+1. Open an empty folder and click the **mocoder** icon in the side bar.
+2. **Create the prompt**: describe your idea; the prompt ends up in the clipboard.
+3. Paste it into any chatbot (Claude, ChatGPT, Gemini…) and save or copy the whole answer.
+4. **Import the answer**: mocoder loads tasks, theory and checks, and fixes the typical format errors on its own.
+5. For each task: read the theory, **Prepare and open the files**, write the code, **Verify**.
 
-Funziona anche senza IA e senza rete: quando un controllo fallisce, "Cosa dice l'errore" spiega
-l'output di test e compilatore. Ogni task indica anche cosa cercare per approfondire.
+It also works without AI and without network: when a check fails, "What the error says" explains
+the test and compiler output. Every task also indicates what to search for to go deeper.
 
-## Con l'IA (opzionale)
+## With AI (optional)
 
-Comando **mocoder: Configura l'IA**: Claude, Ollama (anche i modelli cloud gratuiti) o qualsiasi API
-OpenAI-compatibile. Sblocca il Planner integrato, il tutor che risponde alle domande senza darti la
-soluzione, e la review del codice a fine task e milestone.
+Command **mocoder: Configure the AI**: Claude, Ollama (including the free cloud models) or any
+OpenAI-compatible API. It unlocks the built-in Planner, the tutor that answers questions without giving you the
+solution, and the code review at the end of a task and a milestone.
 
-## Sicurezza
+## Security
 
-I controlli dei task sono comandi eseguiti sul tuo computer. Prima di eseguirli mocoder te li mostra
-tutti (con ⚠ su quelli insoliti) e chiede il permesso; se cambiano, lo chiede di nuovo.
+The task checks are commands executed on your computer. Before running them mocoder shows you
+all of them (with ⚠ on the unusual ones) and asks permission; if they change, it asks again.

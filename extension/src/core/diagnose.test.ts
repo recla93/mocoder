@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { diagnose } from './diagnose.ts';
 import { decodeOutput } from './checks.ts';
 
-// Estratti di output reali catturati eseguendo gli esempi (fase "rosso")
+// Real output excerpts captured by running the examples ("red" phase)
 const PYTEST_SKELETON = `>       raise NotImplementedError
 E       NotImplementedError
 
@@ -44,32 +44,32 @@ const MAVEN_OFFLINE = `[ERROR] Plugin org.apache.maven.plugins:maven-resources-p
 
 const titles = (out: string) => diagnose(out).tips.map(t => t.title);
 
-test('pytest: scheletro, import, modulo mancante, valori diversi e conteggio dei test', () => {
-  assert.deepEqual(titles(PYTEST_SKELETON), ["C'è ancora uno scheletro"]);
+test('pytest: skeleton, import, missing module, different values and test count', () => {
+  assert.deepEqual(titles(PYTEST_SKELETON), ['There is still a skeleton']);
   assert.deepEqual(diagnose(PYTEST_SKELETON).tests, { passed: 0, failed: 7 });
-  assert.deepEqual(titles(PYTEST_IMPORT), ['spese.report non contiene totals_by_category']);
+  assert.deepEqual(titles(PYTEST_IMPORT), ['spese.report does not contain totals_by_category']);
   assert.deepEqual(diagnose(PYTEST_IMPORT).tests, { passed: 0, failed: 1 });
   assert.match(diagnose(PYTEST_MODULE).tips[0].text, /python -m pytest/);
-  assert.deepEqual(titles(PYTEST_ASSERT), ['Risultato diverso dal previsto']);
+  assert.deepEqual(titles(PYTEST_ASSERT), ['Result different from expected']);
   assert.deepEqual(diagnose(PYTEST_ASSERT).tests, { passed: 3, failed: 1 });
 });
 
-test('Java: eccezione attesa, simboli mancanti e totale dei test di Surefire', () => {
-  assert.deepEqual(titles(JUNIT_THROWN), ['Manca un errore']);
+test('Java: expected exception, missing symbols and Surefire test total', () => {
+  assert.deepEqual(titles(JUNIT_THROWN), ['Missing an error']);
   assert.match(diagnose(JUNIT_THROWN).tips[0].text, /IllegalArgumentException/);
   assert.deepEqual(diagnose(JUNIT_THROWN).tests, { passed: 2, failed: 3 });
-  assert.deepEqual(titles(JAVAC_SYMBOL), ['Java non trova la classe CsvStore']);   // "variable" ma è una classe
-  assert.deepEqual(titles(JAVAC_METHOD), ['Java non trova il metodo run']);
+  assert.deepEqual(titles(JAVAC_SYMBOL), ['Java cannot find the class CsvStore']);   // "variable" but it is a class
+  assert.deepEqual(titles(JAVAC_METHOD), ['Java cannot find the method run']);
 });
 
-test('ambiente: Maven senza rete, strumento mancante, nessun consiglio inventato', () => {
-  assert.deepEqual(titles(MAVEN_OFFLINE), ['Maven non riesce a scaricare ciò che gli serve']);
-  // byte reali di cmd.exe in italiano ("è" = 0x8A in OEM), decodificati come fa runChecks
+test('environment: Maven offline, missing tool, no invented tips', () => {
+  assert.deepEqual(titles(MAVEN_OFFLINE), ['Maven cannot download what it needs']);
+  // real cmd.exe bytes in Italian ("è" = 0x8A in OEM), decoded as runChecks does
   const cmdBytes = Buffer.concat([Buffer.from('"mvn" non '), Buffer.from([0x8a]), Buffer.from(' riconosciuto come comando interno o esterno,')]);
-  assert.deepEqual(titles(decodeOutput(cmdBytes)), ['Manca il programma mvn']);
-  assert.deepEqual(titles("'mvn' non è riconosciuto come comando interno o esterno,"), ['Manca il programma mvn']);
-  assert.deepEqual(titles("'mvn' is not recognized as an internal or external command,"), ['Manca il programma mvn']);
-  assert.deepEqual(titles('bash: mvn: command not found'), ['Manca il programma mvn']);
+  assert.deepEqual(titles(decodeOutput(cmdBytes)), ['Missing program mvn']);
+  assert.deepEqual(titles("'mvn' non è riconosciuto come comando interno o esterno,"), ['Missing program mvn']);
+  assert.deepEqual(titles("'mvn' is not recognized as an internal or external command,"), ['Missing program mvn']);
+  assert.deepEqual(titles('bash: mvn: command not found'), ['Missing program mvn']);
   assert.deepEqual(diagnose('qualcosa di mai visto').tips, []);
   assert.equal(diagnose('qualcosa di mai visto').tests, undefined);
 });
