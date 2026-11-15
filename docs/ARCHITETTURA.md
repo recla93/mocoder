@@ -192,6 +192,7 @@ mocoder/
   examples/
     registro-presenze/.mocoder/ backlog.yaml + solution.yaml   (Java)
     analisi-spese/.mocoder/     backlog.yaml + solution.yaml   (Python)
+    contatore-parole/.mocoder/  backlog.yaml + solution.yaml   (TypeScript, node --test)
     broken/.mocoder/            fails on purpose: verification and diagnostics test
   extension/
     src/core/        backlog, workspace, checks, progress, verify  (pure, tested)

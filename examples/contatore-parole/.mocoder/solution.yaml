@@ -1,0 +1,53 @@
+# Soluzione di riferimento: nascosta all'utente, serve a verificare i check (rosso prima, verde dopo).
+schema: 1
+tasks:
+  T01:
+    - path: src/words.ts
+      content: |
+        const WORD = /[\p{L}\p{N}]+/gu;
+
+        export function countWords(text: string): number {
+          return (text.match(WORD) ?? []).length;
+        }
+  T02:
+    - path: src/words.ts
+      content: |
+        const WORD = /[\p{L}\p{N}]+/gu;
+
+        export function countWords(text: string): number {
+          return (text.match(WORD) ?? []).length;
+        }
+
+        export function topWords(text: string, n: number): [string, number][] {
+          if (!Number.isInteger(n) || n < 1) throw new RangeError('n deve essere un intero positivo');
+          const counts = new Map<string, number>();
+          for (const word of text.toLowerCase().match(WORD) ?? []) counts.set(word, (counts.get(word) ?? 0) + 1);
+          return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, n);
+        }
+  T03:
+    - path: src/cli.ts
+      content: |
+        import { countWords, topWords } from './words.ts';
+
+        export function run(args: string[], read: (path: string) => string, print: (line: string) => void): number {
+          if (args.length !== 1) {
+            print('uso: node src/main.ts <file>');
+            return 2;
+          }
+          let text: string;
+          try {
+            text = read(args[0]);
+          } catch {
+            print(`errore: impossibile leggere ${args[0]}`);
+            return 1;
+          }
+          print(`parole: ${countWords(text)}`);
+          for (const [word, count] of topWords(text, 3)) print(`${word}: ${count}`);
+          return 0;
+        }
+    - path: src/main.ts
+      content: |
+        import { readFileSync } from 'node:fs';
+        import { run } from './cli.ts';
+
+        process.exitCode = run(process.argv.slice(2), p => readFileSync(p, 'utf8'), l => console.log(l));

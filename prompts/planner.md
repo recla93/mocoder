@@ -108,6 +108,14 @@ explaining the why, but do not omit them.
    project root. For Python use `python -m pytest`, not `pytest`: only this way are the modules in the root importable.
    For Maven, a check that runs the program compiles first: `mvn -q compile exec:java ...`, because `exec:java`
    alone runs only the classes already compiled.
+   For JavaScript/TypeScript use Node's built-in test runner, `node --test "test/**/*.test.ts"` (quoted glob: it works
+   on every OS), with `node:assert/strict`; `package.json` has `"type": "module"`. TypeScript runs directly on
+   Node ≥ 22.18, which removes the types without compiling: only erasable syntax (no `enum`, `namespace` or constructor
+   parameter properties) and imports that end in `.ts`. Skeletons throw `new Error('TODO')`.
+   Prefer no npm dependencies: the backlog is verified in a temporary folder without `node_modules`, so a path that
+   needs packages (Jest, Vitest, a framework) cannot be checked in advance, and the Feasibility says so. If you use
+   them anyway: exact versions in `package.json`, `npx vitest run` (never watch mode). Type checking, when the task
+   teaches it: `npx --yes -p typescript@<exact version> tsc --noEmit` with a `tsconfig.json`.
 5. `depends_on` only towards previous tasks.
 6. Cybersecurity: only local and legal targets (containers, lab machines), never third-party systems.
 7. The check commands do not delete files, do not download scripts, do not use paths outside the project:

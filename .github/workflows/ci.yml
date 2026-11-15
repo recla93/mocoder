@@ -32,6 +32,8 @@ jobs:
       - run: npm test
       - name: Python example, red → green
         run: npm run verify -- ../examples/analisi-spese/.mocoder/backlog.yaml ../examples/analisi-spese/.mocoder/solution.yaml
+      - name: TypeScript example, red → green
+        run: npm run verify -- ../examples/contatore-parole/.mocoder/backlog.yaml ../examples/contatore-parole/.mocoder/solution.yaml
 
   java-example:
     # Maven downloads its plugins on the first build: once, on one OS, is enough.

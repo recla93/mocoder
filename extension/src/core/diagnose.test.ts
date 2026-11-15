@@ -97,3 +97,59 @@ test('Java: a JDK older than the project gets its own tip', () => {
   assert.match(d.tips[0].text, /JDK 21 or newer/);
   assert.match(diagnose('error: invalid target release: 17').tips[0].text, /Java 17/);
 });
+
+// Real Node 24 output (node --test, spec reporter), captured from a TypeScript project
+const NODE_ASSERT = `✖ counts words (3.5167ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+✖ failing tests:
+test at test/words.test.ts:4:1
+✖ counts words (3.5167ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  3 !== 2
+
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }`;
+
+test('JavaScript/TypeScript: node:test counts and assertion values', () => {
+  const d = diagnose(NODE_ASSERT);
+  assert.deepEqual(d.tests, { passed: 0, failed: 1 });
+  assert.match(d.tips[0].text, /expected `2` but the code produced `3`/);
+  assert.deepEqual(diagnose('# tests 3\n# suites 0\n# pass 2\n# fail 1\n').tests, { passed: 2, failed: 1 });   // TAP reporter
+});
+
+test('JavaScript/TypeScript: missing files and packages, type errors, skeletons', () => {
+  const file = diagnose(String.raw`Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\tmp\p\src\missing.ts' imported from C:\tmp\p\test\words.test.ts`);
+  assert.equal(file.tips[0].title, 'Node cannot find the file missing.ts');
+  assert.match(file.tips[0].text, /`words\.test\.ts` imports `missing\.ts`/);
+  assert.match(diagnose("Error: Cannot find module './util'\nRequire stack:").tips[0].title, /file util/);
+  assert.equal(diagnose(String.raw`Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'zod' imported from C:\p\src\a.ts`).tips[0].title, 'Package zod is not installed');
+  assert.match(diagnose("src/bad.ts(1,14): error TS2322: Type 'string' is not assignable to type 'number'.").tips[0].text, /In `src\/bad\.ts` at line 1: Type 'string'/);
+  assert.equal(diagnose('  Error: TODO: implement topWords').tips[0].title, 'There is still a skeleton');
+  assert.match(diagnose('TypeError: countWords is not a function').tips[0].title, /countWords is not a function/);
+  assert.match(diagnose('x.ts: TypeScript enum is not supported in strip-only mode').tips[0].title, /Node cannot run/);
+});
+
+test('JavaScript SyntaxError gets JavaScript advice, Python keeps its own', () => {
+  assert.equal(diagnose("SyntaxError: Unexpected token '}'").tips[0].title, 'JavaScript cannot read the file');
+  // an import of something not exported yet is a SyntaxError for Node, but not a typo in brackets
+  const missingExport = diagnose("SyntaxError: The requested module '../src/words.ts' does not provide an export named 'topWords'");
+  assert.deepEqual(missingExport.tips.map(t => t.title), ['topWords is not exported']);
+  const py = diagnose('  File "spese/load.py", line 3\n    def f(\nSyntaxError: \'(\' was never closed');
+  assert.deepEqual(py.tips.map(t => t.title), ['Python cannot read the file']);
+});
+
+test('Jest and Vitest: summaries and expected/received values', () => {
+  assert.deepEqual(diagnose('Tests:       1 failed, 2 passed, 3 total').tests, { passed: 2, failed: 1 });
+  assert.deepEqual(diagnose('      Tests  1 failed | 2 passed (3)').tests, { passed: 2, failed: 1 });
+  assert.match(diagnose('    Expected: 3\n    Received: 2').tips[0].text, /expected `3` but the code produced `2`/);
+  assert.match(diagnose('AssertionError: expected 2 to be 3 // Object.is equality').tips[0].text, /expected `3` but the code produced `2`/);
+});

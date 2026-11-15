@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { Backlog, Solution } from './backlog.ts';
 import { applySolution, prepareTask } from './workspace.ts';
 import { passed, runChecks, type CheckResult } from './checks.ts';
-import { JDK_TOO_OLD, MAVEN_DOWNLOAD, MISSING_PROGRAM } from './diagnose.ts';
+import { JDK_TOO_OLD, MAVEN_DOWNLOAD, MISSING_PROGRAM, NPM_PACKAGE } from './diagnose.ts';
 
 export type Log = (line: string) => void;
 
@@ -43,8 +43,7 @@ export function missingOnThisComputer(root: string, output: string): string | un
     if (declared(reqs, py)) return `the Python package ${py} is not installed: run \`python -m pip install ${specs.map(s => `"${s}"`).join(' ')}\``;
     if (declared(read(root, 'pyproject.toml'), py)) return `the Python package ${py} is not installed: run \`python -m pip install ${py}\``;
   }
-  const node = output.match(/Cannot find (?:module|package) '([^'./][^']*)'/)?.[1];
-  const pkg = node && (node.startsWith('@') ? node.split('/').slice(0, 2).join('/') : node.split('/')[0]);
+  const pkg = output.match(NPM_PACKAGE)?.[1];
   if (pkg && !existsSync(join(root, 'node_modules', pkg)) && read(root, 'package.json').includes(`"${pkg}"`)) {
     // npm installs into the project folder, never into the verification's temporary one
     return `the npm package ${pkg} is needed, and the backlog verification does not install npm packages: this task can only be checked in your project, after \`npm install\``;

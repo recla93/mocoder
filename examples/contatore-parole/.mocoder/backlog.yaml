@@ -1,0 +1,245 @@
+schema: 1
+project: contatore-parole
+title: Contatore di parole
+summary: >
+  Un programma da terminale che conta le parole di un file di testo e mostra le più frequenti.
+  Primo passo con TypeScript e i test, usando solo Node: nessuna libreria da installare.
+level: beginner
+estimate_hours: 4
+stack: [node-22.18, typescript, node-test]
+conventions:
+  - Struttura — codice in src/, test in test/, un modulo per responsabilità
+  - 'Build — package.json con "type": "module"; nessuna dipendenza esterna'
+  - Git — node_modules/ e i file di sistema fuori da git; un commit per task
+  - TypeScript — solo sintassi che Node sa eseguire (niente enum o namespace); import con estensione .ts
+  - Errori — input sbagliato → errore chiaro con exit code diverso da 0, mai uno stack trace all'utente
+  - Stile — nomi in inglese, funzioni piccole e pure, output solo dal comando
+
+milestones:
+  - id: M1
+    title: Contare le parole
+    goal: Le funzioni contano le parole di un testo e trovano le più frequenti.
+  - id: M2
+    title: Il comando
+    goal: Un comando da terminale legge un file e stampa il risultato o un errore comprensibile.
+
+tasks:
+  - id: T01
+    milestone: M1
+    title: Contare le parole
+    goal: countWords conta le parole di un testo, ignorando spazi e punteggiatura.
+    learn: [typescript-base, moduli-es, node-test, espressioni-regolari]
+    search: ["node test runner node:test", "typescript type annotations basics", "javascript regex unicode property escapes"]
+    theory: |
+      **Il progetto.** Ti serve solo Node ≥ 22.18: esegue i file `.ts` direttamente, togliendo i tipi.
+      `package.json` descrive il progetto; `"type": "module"` dice a Node che usi `import`/`export`.
+      Il codice sta in `src/`, i test in `test/`, e li esegui con `node --test test/words.test.ts`.
+
+      **Tipi.** In TypeScript scrivi il tipo di parametri e risultato:
+      `function countWords(text: string): number`. Node non controlla i tipi, li toglie e basta:
+      servono a te e all'editor per trovare gli errori prima di eseguire.
+
+      **Cos'è una parola.** Una sequenza di lettere o cifre, in qualsiasi alfabeto:
+      `"Ciao, mondo!"` ha 2 parole, `"  "` nessuna. Un'espressione regolare con il flag `u`
+      riconosce le lettere di ogni lingua: `/[\p{L}\p{N}]+/gu`. `text.match(...)` restituisce le
+      parole trovate, oppure `null` se non ce n'è nessuna.
+
+      **Errori tipici:** usare `split(" ")`, che conta come parole anche gli spazi doppi;
+      dimenticare che `match` può restituire `null`.
+    files:
+      - path: package.json
+        given: true
+        content: |
+          {
+            "name": "contatore-parole",
+            "version": "0.1.0",
+            "type": "module",
+            "private": true,
+            "scripts": {
+              "test": "node --test \"test/**/*.test.ts\""
+            }
+          }
+      - path: .gitignore
+        given: true
+        content: |
+          node_modules/
+          .DS_Store
+      - path: README.md
+        given: true
+        content: |
+          # Contatore di parole
+
+          Conta le parole di un file di testo e mostra le più frequenti.
+
+          Serve Node ≥ 22.18. Avvio: `node src/main.ts <file>`. Test: `npm test`.
+      - path: test/words.test.ts
+        given: true
+        content: |
+          import { test } from 'node:test';
+          import assert from 'node:assert/strict';
+          import { countWords } from '../src/words.ts';
+
+          test('conta le parole separate da spazi e punteggiatura', () => {
+            assert.equal(countWords('Ciao, mondo!'), 2, 'la punteggiatura non è una parola');
+            assert.equal(countWords('uno  due\ttre\nquattro'), 4, 'spazi doppi, tab e a capo separano le parole');
+          });
+
+          test('un testo vuoto o di soli spazi non ha parole', () => {
+            assert.equal(countWords(''), 0, 'una stringa vuota ha 0 parole');
+            assert.equal(countWords('   '), 0, 'gli spazi da soli non sono parole');
+          });
+
+          test('le lettere accentate fanno parte della parola', () => {
+            assert.equal(countWords('perché città è'), 3, 'perché, città ed è sono parole intere');
+          });
+      - path: src/words.ts
+        content: |
+          export function countWords(text: string): number {
+            throw new Error('TODO: countWords');
+          }
+    hints:
+      - "Una parola è una sequenza di lettere o cifre: cerca tutte le sequenze nel testo, poi contale."
+      - "`text.match(/[\\p{L}\\p{N}]+/gu)` dà un array di parole oppure `null`: l'operatore `??` ti aiuta a gestire il caso `null`."
+      - "Soluzione: `return (text.match(/[\\p{L}\\p{N}]+/gu) ?? []).length;`"
+    checks:
+      - run: node --test test/words.test.ts
+    review:
+      - Il caso di testo senza parole è gestito senza errori
+      - Il tipo di ritorno è dichiarato
+
+  - id: T02
+    milestone: M1
+    title: Le parole più frequenti
+    depends_on: [T01]
+    goal: topWords restituisce le n parole più frequenti, senza distinguere maiuscole e minuscole.
+    learn: [map, ordinamento, tuple, errori]
+    search: ["javascript Map count occurrences", "javascript sort compare function", "javascript RangeError"]
+    theory: |
+      **La funzione da creare**, in `src/words.ts` accanto a `countWords`:
+      `topWords(text: string, n: number): [string, number][]`.
+      Ogni elemento è una *tupla* `[parola, quante volte]`.
+
+      **Contare.** Una `Map<string, number>` associa a ogni parola il suo conteggio:
+      `counts.set(w, (counts.get(w) ?? 0) + 1)`. Converti le parole in minuscolo prima di contarle:
+      "Casa" e "casa" sono la stessa parola.
+
+      **Ordine.** Dalla più frequente; a parità di conteggio, in ordine alfabetico, così il risultato
+      è sempre lo stesso. `sort` accetta una funzione di confronto: un numero negativo mette prima il
+      primo elemento. Per l'ordine alfabetico c'è `a.localeCompare(b)`.
+
+      **Input sbagliato.** `n` deve essere un intero positivo: altrimenti lancia un `RangeError`
+      con un messaggio chiaro. Validare all'ingresso evita risultati strani più avanti.
+
+      **Errori tipici:** ordinare solo per conteggio (risultato che cambia tra un'esecuzione e
+      l'altra), dimenticare il minuscolo, restituire più di `n` elementi.
+    files:
+      - path: test/top.test.ts
+        given: true
+        content: |
+          import { test } from 'node:test';
+          import assert from 'node:assert/strict';
+          import { topWords } from '../src/words.ts';
+
+          test('le parole più frequenti, a parità in ordine alfabetico', () => {
+            const text = 'il gatto e il cane, il cane e il gatto. Topo!';
+            assert.deepEqual(topWords(text, 3), [['il', 4], ['cane', 2], ['e', 2]], 'prima la più frequente, poi in ordine alfabetico');
+          });
+
+          test('maiuscole e minuscole sono la stessa parola', () => {
+            assert.deepEqual(topWords('Casa casa CASA', 1), [['casa', 3]], 'Casa, casa e CASA vanno contate insieme');
+          });
+
+          test('n più grande delle parole disponibili', () => {
+            assert.deepEqual(topWords('uno due', 5), [['due', 1], ['uno', 1]], 'si restituiscono solo le parole che ci sono');
+          });
+
+          test('n non valido è un errore', () => {
+            assert.throws(() => topWords('uno', 0), RangeError, 'n = 0 deve lanciare RangeError');
+            assert.throws(() => topWords('uno', 1.5), RangeError, 'n non intero deve lanciare RangeError');
+          });
+      - path: src/words.ts
+    hints:
+      - "Prima conta: una `Map` con la parola in minuscolo come chiave. Poi ordina le coppie `[...counts]` e prendi le prime `n` con `slice`."
+      - "Nella funzione di confronto: `b[1] - a[1]` mette prima il conteggio più alto; se il risultato è 0, usa `a[0].localeCompare(b[0])`."
+      - "Soluzione: valida con `if (!Number.isInteger(n) || n < 1) throw new RangeError('n deve essere un intero positivo')`, poi `return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, n);`"
+    checks:
+      - run: node --test test/top.test.ts
+    review:
+      - L'ordine è deterministico anche a parità di conteggio
+      - L'input non valido è rifiutato all'inizio della funzione
+
+  - id: T03
+    milestone: M2
+    title: Il comando
+    depends_on: [T02]
+    goal: Il comando legge un file e stampa il numero di parole e le 3 più frequenti, o un errore chiaro.
+    learn: [process-argv, fs, exit-code, funzioni-pure]
+    search: ["node process.argv", "node fs readFileSync utf8", "node process exitCode"]
+    theory: |
+      **Separare la logica dal mondo esterno.** `src/cli.ts` contiene
+      `run(args: string[], read: (path: string) => string, print: (line: string) => void): number`:
+      riceve gli argomenti, una funzione per leggere i file e una per stampare, e restituisce
+      l'exit code. Non tocca davvero disco e console, quindi il test può passargli funzioni finte.
+      `src/main.ts` invece collega `run` a Node: `process.argv.slice(2)`, `readFileSync(p, 'utf8')`,
+      `console.log`, e mette il risultato in `process.exitCode`.
+
+      **Cosa stampa.** Con un file: prima `parole: N`, poi una riga per ognuna delle 3 parole più
+      frequenti, nel formato `parola: conteggio`. Exit code 0.
+      Senza argomenti: `uso: node src/main.ts <file>`, exit code 2.
+      Se il file non si legge: `errore: impossibile leggere <file>`, exit code 1,
+      senza mostrare lo stack trace.
+
+      **Errori tipici:** chiamare `process.exit` dentro `run` (il test si chiuderebbe), stampare
+      l'eccezione intera, dimenticare l'exit code diverso da 0.
+    files:
+      - path: test/cli.test.ts
+        given: true
+        content: |
+          import { test } from 'node:test';
+          import assert from 'node:assert/strict';
+          import { run } from '../src/cli.ts';
+
+          const files: Record<string, string> = { 'a.txt': 'il gatto e il cane e il topo' };
+          const read = (p: string) => {
+            if (!(p in files)) throw new Error(`ENOENT: ${p}`);
+            return files[p];
+          };
+
+          test('con un file stampa il totale e le 3 parole più frequenti', () => {
+            const out: string[] = [];
+            assert.equal(run(['a.txt'], read, l => out.push(l)), 0, 'un file valido termina con exit code 0');
+            assert.deepEqual(out, ['parole: 8', 'il: 3', 'e: 2', 'cane: 1'], 'prima il totale, poi le 3 più frequenti');
+          });
+
+          test('senza argomenti spiega come si usa', () => {
+            const out: string[] = [];
+            assert.equal(run([], read, l => out.push(l)), 2, 'senza file l\'exit code è 2');
+            assert.deepEqual(out, ['uso: node src/main.ts <file>'], 'mostra come si usa il comando');
+          });
+
+          test('un file illeggibile è un errore chiaro, senza stack trace', () => {
+            const out: string[] = [];
+            assert.equal(run(['manca.txt'], read, l => out.push(l)), 1, 'un file mancante dà exit code 1');
+            assert.deepEqual(out, ['errore: impossibile leggere manca.txt'], 'il messaggio nomina il file, senza dettagli interni');
+          });
+      - path: src/cli.ts
+        content: |
+          import { countWords, topWords } from './words.ts';
+
+          export function run(args: string[], read: (path: string) => string, print: (line: string) => void): number {
+            throw new Error('TODO: run');
+          }
+      - path: src/main.ts
+        content: |
+          // Collega run a Node: argomenti, lettura dei file, console ed exit code.
+    hints:
+      - "Gestisci prima i casi di errore: nessun argomento (exit 2), poi `read` dentro un `try/catch` (exit 1). Il caso valido resta alla fine."
+      - "Per le righe delle parole: `for (const [word, count] of topWords(text, 3)) print(`${word}: ${count}`);`"
+      - "Soluzione per main.ts: `import { readFileSync } from 'node:fs'; import { run } from './cli.ts'; process.exitCode = run(process.argv.slice(2), p => readFileSync(p, 'utf8'), l => console.log(l));`"
+    checks:
+      - run: node --test test/cli.test.ts
+      - run: node src/main.ts README.md
+        expect: "parole: \\d+"
+    review:
+      - run non usa process né console direttamente
+      - Gli errori non mostrano stack trace

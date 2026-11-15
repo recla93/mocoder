@@ -52,7 +52,9 @@ export function fixRequest(backlogText: string, solutionText: string, f: VerifyF
     'Check rules: a check passes only if the command exits with code 0 and, if `expect` is present, the output contains it. ' +
     'A task cannot have "a failing test" as its goal. Commands run from the project root; ' +
     'for Python use `python -m pytest`, not `pytest`, otherwise modules in the root are not importable; ' +
-    'for Maven use `mvn -q compile exec:java ...` to run the program, because `exec:java` alone does not compile.',
+    'for Maven use `mvn -q compile exec:java ...` to run the program, because `exec:java` alone does not compile; ' +
+    'for JavaScript/TypeScript prefer `node --test "test/**/*.test.ts"` with `node:assert/strict` and no npm dependencies, ' +
+    'because the verification folder has no node_modules.',
     `Task ${f.taskId}: ${problem}`,
     `Check output:\n\`\`\`\n${f.output}\n\`\`\``,
     'Return both complete YAML blocks (backlog and solution) again, fixed, with no other text. Do not change tasks that already work.',

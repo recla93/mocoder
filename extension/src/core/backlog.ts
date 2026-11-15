@@ -78,6 +78,16 @@ function autofix(data: any): string[] {
         c.run = c.run.replace(/\sexec:java\b/, ' compile exec:java');
         fixes.push(`${t.id}: "mvn exec:java" → "mvn compile exec:java", otherwise the new classes are not compiled`);
       }
+      // project-local tools live in node_modules/.bin, which is not on the PATH: npx finds them
+      if (typeof c?.run === 'string' && /^(jest|vitest|tsc)\b/.test(c.run)) {
+        fixes.push(`${t.id}: "${c.run.split(' ')[0]}" → "npx ${c.run.split(' ')[0]}", the tool is not on the PATH`);
+        c.run = `npx ${c.run}`;
+      }
+      // without "run" vitest may stay in watch mode and the check never ends
+      if (typeof c?.run === 'string' && /^npx\s+vitest\b/.test(c.run) && !/\s(run|--run)(\s|$)/.test(c.run)) {
+        c.run = c.run.replace(/^npx\s+vitest\b/, 'npx vitest run');
+        fixes.push(`${t.id}: "npx vitest" → "npx vitest run", so the check ends instead of watching`);
+      }
     }
   }
   return fixes;
@@ -174,6 +184,14 @@ function foundations(b: Backlog): string[] {
     if (!managed) for (const d of blocks('dependency').filter(d => !/<version>/.test(d))) problems.push(`${pom.path}: dependency ${name(d)} has no <version>`);
     for (const p of ['maven-compiler-plugin', 'maven-surefire-plugin']) {
       if (!xml.includes(`<artifactId>${p}</artifactId>`)) problems.push(`${pom.path}: declare ${p} with a pinned version (reproducible build and JUnit 5 tests run)`);
+    }
+  }
+  // npm: "latest" or "*" make the build change from one day to the next
+  for (const pkg of files.filter(f => f.path.endsWith('package.json') && f.content)) {
+    let json: { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
+    try { json = JSON.parse(pkg.content!); } catch { problems.push(`${pkg.path}: not valid JSON`); continue; }
+    for (const [name, version] of Object.entries({ ...json.dependencies, ...json.devDependencies })) {
+      if (/^\s*(latest|\*|x)?\s*$/i.test(String(version))) problems.push(`${pkg.path}: dependency ${name} has no pinned version ("${version}")`);
     }
   }
   return problems;

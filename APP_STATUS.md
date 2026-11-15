@@ -201,8 +201,10 @@ This batch also translated all tests and fixed three test names that a first pas
   coverage. Its first runs found a JDK 17 vs `release 21` mismatch: mocoder now has an offline tip and a
   `missing` verification result for a JDK older than the project needs.
 - **Languages:** the core runs any check command, but offline tips, test counts, command autofixes, build-file
-  checks and missing-dependency detection exist only for Python/pytest and Java/Maven (+ npm partly). Plan:
-  JavaScript/TypeScript next, then C#, Go, Rust; C/C++ last. The second full path should be JS/TS.
+  checks and missing-dependency detection cover Python/pytest, Java/Maven and (since 2026-11-15) JavaScript/TypeScript:
+  node:test (spec and TAP), Jest, Vitest, tsc; npx autofix for jest/vitest/tsc, `vitest run`, pinned npm versions;
+  example `contatore-parole` (TypeScript, node --test, no npm deps) verified in CI on 3 OSes. Next: C#, Go, Rust;
+  C/C++ last. The second full path should be JS/TS via the no-account road.
 
 ## 6. Key constants
 

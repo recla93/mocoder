@@ -13,6 +13,8 @@ const code = (s: string) => `\`${s.trim()}\``;
 export const MISSING_PROGRAM = /["']([\w.-]+)["'] non \S{0,2}\s?riconosciuto|["']([\w.-]+)["'] is not recognized|([\w.-]+): command not found|Termine '([\w.-]+)' non riconosciuto/;
 /** Maven cannot download plugins or libraries. Also used by the backlog verification. */
 export const MAVEN_DOWNLOAD = /Cannot access central[^\n]*offline mode|Could not resolve dependencies|Could not transfer artifact|or one of its dependencies could not be resolved/;
+/** An npm package (a bare name, not a path) that Node cannot find. Also used by the backlog verification. */
+export const NPM_PACKAGE = /Cannot find (?:module|package) '((?:@[\w.-]+\/)?[A-Za-z][\w.-]*)(?:\/[^']*)?'/;
 /** The JDK is older than the Java version the project compiles for. Also used by the backlog verification. */
 export const JDK_TOO_OLD = /release version (\d+) not supported|invalid target release: (\d+)/;
 
@@ -49,7 +51,8 @@ const RULES: { re: RegExp; tip: (m: RegExpMatchArray, out: string) => Tip }[] = 
   { re: /ImportError: cannot import name '(\w+)' from '([\w.]+)'/, tip: m => ({ title: `${m[2]} does not contain ${m[1]}`, text: `The file exists but does not define ${code(m[1])}: check the name, including capitalization, and that it is not inside another function.` }) },
   { re: /NotImplementedError/, tip: () => ({ title: 'There is still a skeleton', text: `A function still contains ${code('raise NotImplementedError')}: replace it with your code.` }) },
   {
-    re: /(SyntaxError|IndentationError): ([^\n]+)/,
+    // only Python's own format (File "x", line N): JavaScript has a SyntaxError too, with different advice
+    re: /File "[^"]+", line \d+[\s\S]*?(SyntaxError|IndentationError): ([^\n]+)/,
     tip: (m, out) => {
       const at = out.match(/File "([^"]+)", line (\d+)/);
       return { title: 'Python cannot read the file', text: `${at ? `In ${code(at[1])} at line ${at[2]}: ` : ''}${m[2]}. Check parentheses, the colon at the end of the line and the indentation.` };
@@ -94,6 +97,38 @@ const RULES: { re: RegExp; tip: (m: RegExpMatchArray, out: string) => Tip }[] = 
   { re: /Expected ([\w.]+) to be thrown, but nothing was thrown/, tip: m => ({ title: 'Missing an error', text: `The test expects the code to throw ${code(m[1].split('.').pop()!)} with this data, but that does not happen.` }) },
   { re: /UnsupportedOperationException: TODO/, tip: () => ({ title: 'There is still a skeleton', text: `A method still throws ${code('UnsupportedOperationException("TODO")')}: replace it with your code.` }) },
   { re: /NullPointerException/, tip: () => ({ title: 'Null value', text: 'The code uses an object that is null: check that you created or assigned it before using it.' }) },
+
+  // JavaScript / TypeScript (Node test runner, Jest, Vitest, tsc)
+  {
+    re: NPM_PACKAGE,
+    tip: m => ({ title: `Package ${m[1]} is not installed`, text: `Run ${code('npm install')} in the project: it installs the packages listed in ${code('package.json')}. If ${code(m[1])} is not listed there, add it with a pinned version.` }),
+  },
+  {
+    // a path (relative, absolute Windows or Unix), not a package: "imported from" is ESM, CommonJS has no importer
+    re: /Cannot find module '((?:\.|[A-Za-z]:\\|\/)[^']*)'(?: imported from ([^\s']+))?/,
+    tip: m => {
+      const name = (p: string) => p.split(/[\\/]/).pop()!;
+      return { title: `Node cannot find the file ${name(m[1])}`, text: `${m[2] ? `${code(name(m[2]))} imports ${code(name(m[1]))}, which` : `${code(name(m[1]))}`} does not exist at that path. Check the file name, the folder and the extension in the import (${code('.ts')} or ${code('.js')}).` };
+    },
+  },
+  {
+    re: /ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX|is not supported in strip-only mode/,
+    tip: () => ({ title: 'TypeScript syntax that Node cannot run', text: `Node runs TypeScript by removing the types only: ${code('enum')}, ${code('namespace')} and constructor parameter properties are not supported. Use a union of strings or a ${code('const')} object instead.` }),
+  },
+  {
+    re: /([\w./\\-]+\.tsx?)\((\d+),\d+\): error (TS\d+): ([^\n]+)/,
+    tip: m => ({ title: 'TypeScript type error', text: `In ${code(m[1])} at line ${m[2]}: ${m[4]}` }),
+  },
+  { re: /does not provide an export named '(\w+)'/, tip: m => ({ title: `${m[1]} is not exported`, text: `The test imports ${code(m[1])}, but the module does not export it: create it, or add ${code('export')} in front of its declaration, with the exact name.` }) },
+  { re: /^(?![\s\S]*(?:File "|does not provide an export named))[\s\S]*?SyntaxError: ([^\n]+)/, tip: m => ({ title: 'JavaScript cannot read the file', text: `${m[1]}. Check brackets, quotes and commas near the line shown in the output.` }) },
+  { re: /ReferenceError: (\w+) is not defined/, tip: m => ({ title: `${m[1]} does not exist`, text: `You use ${code(m[1])} before defining or importing it, or there is a typo.` }) },
+  { re: /TypeError: ([\w.]+) is not a function/, tip: m => ({ title: `${m[1]} is not a function`, text: `Check the name of ${code(m[1])}, that it is exported by its module and imported with the same name.` }) },
+  { re: /Error: TODO\b/, tip: () => ({ title: 'There is still a skeleton', text: `A function still throws ${code("new Error('TODO')")}: replace it with your code.` }) },
+  { re: /Missing expected exception/, tip: () => ({ title: 'Missing an error', text: 'The test expects the code to throw an error with this data, but that does not happen.' }) },
+  // node:assert prints both values; Jest and Vitest have their own wording
+  { re: /actual: ([^\n]+),\n\s*expected: ([^\n]+),\n\s*operator: '(?:strict|deepStrict|deep)?[eE]qual'/, tip: m => ({ title: 'Result different from expected', text: `The test expected ${code(m[2])} but the code produced ${code(m[1])}.` }) },
+  { re: /Expected: ([^\n]+)\n\s*Received: ([^\n]+)/, tip: m => ({ title: 'Result different from expected', text: `The test expected ${code(m[1])} but the code produced ${code(m[2])}.` }) },
+  { re: /AssertionError: expected (.+?) to (?:be|equal|deeply equal|strictly equal) (.+?)(?: \/\/|\n|$)/, tip: m => ({ title: 'Result different from expected', text: `The test expected ${code(m[2])} but the code produced ${code(m[1])}.` }) },
 ];
 
 const MAX_TIPS = 3;
@@ -110,6 +145,15 @@ function testCounts(out: string): Diagnosis['tests'] {
   if (summary) {
     const n = (k: RegExp) => Number(summary.match(k)?.[1] ?? 0);
     return { passed: n(/(\d+) passed/), failed: n(/(\d+) failed/) + n(/(\d+) errors?/) };
+  }
+  // Node test runner: "ℹ pass 2 / ℹ fail 1" (spec reporter) or "# pass 2 / # fail 1" (TAP)
+  const node = out.match(/^[ℹ#] pass (\d+)\s*\n[ℹ#] fail (\d+)/m);
+  if (node) return { passed: Number(node[1]), failed: Number(node[2]) };
+  // Jest "Tests:       1 failed, 2 passed, 3 total"; Vitest "      Tests  1 failed | 2 passed (3)"
+  const js = out.match(/^\s*Tests:?\s+([^\n]*(?:\d+ total|\(\d+\)))/m)?.[1];
+  if (js) {
+    const n = (k: RegExp) => Number(js.match(k)?.[1] ?? 0);
+    return { passed: n(/(\d+) passed/), failed: n(/(\d+) failed/) };
   }
   return undefined;
 }

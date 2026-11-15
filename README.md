@@ -13,8 +13,8 @@ task after task: theory, scaled hints, automated checks, one commit per task.
 |---|---|
 | VS Code ≥ 1.95 | mocoder is a VS Code extension |
 | git | one commit per completed task (if git is missing the tutor still works, without commits) |
-| The tools of the project you build | the checks run them: e.g. **JDK 17+ and Maven** for Java, **Python 3.11+ and pytest** for Python |
-| Node ≥ 22.18 | only to build the package from source |
+| The tools of the project you build | the checks run them: e.g. **a JDK and Maven** for Java (the version the path asks for), **Python 3.11+ and pytest** for Python, **Node ≥ 22.18** for JavaScript/TypeScript |
+| Node ≥ 22.18 | also to build the package from source |
 
 Git needs a name and an email, otherwise the task commits fail (mocoder tells you):
 
@@ -145,6 +145,21 @@ generate the skeleton (e.g. `mvn archetype:generate`).
 **Without AI and without network** everything works except the tutor: when a check fails, the panel explains the
 error by reading the test and compiler output ("What the error says").
 
+## Languages
+
+A check is any command, so a path can use any language whose tools run from a terminal. How much mocoder helps
+on top of that depends on the language:
+
+| Language | Offline tips and test counts | Pre-verification of the path |
+|---|---|---|
+| Java (Maven, JUnit 5) | yes | yes (Maven downloads what it needs) |
+| Python (pytest) | yes | yes, once the declared packages are installed (mocoder says which) |
+| JavaScript / TypeScript (`node --test`, Jest, Vitest, `tsc`) | yes | yes with `node --test` and no npm packages; paths with npm packages are checked in your project only |
+| Others (C#, Go, Rust, C/C++…) | raw output only | yes, if the tools are installed |
+
+The Planner prefers, for JavaScript/TypeScript, Node's built-in test runner: no dependencies, TypeScript run directly
+by Node ≥ 22.18, and a path that can be verified in advance.
+
 ## Security
 
 The task checks are commands executed on your computer, and the backlog can come from a chatbot. Before the first
@@ -171,7 +186,7 @@ that folder and is asked again if the commands change, even when the Planner rew
 |---|---|
 | `schema/` | Backlog and solution format (JSON Schema): the contract with any LLM |
 | `prompts/` | Planner, Mentor and Reviewer prompts |
-| `examples/` | Complete and verified paths: Java (`registro-presenze`), Python (`analisi-spese`). Plus `broken`: a path that fails on purpose, to exercise verification, diagnostics and fixing |
+| `examples/` | Complete and verified paths: Java (`registro-presenze`), Python (`analisi-spese`), TypeScript with no npm dependencies (`contatore-parole`). Plus `broken`: a path that fails on purpose, to exercise verification, diagnostics and fixing |
 | `extension/src/core/` | Pure, tested logic: backlog, files, checks, progress, red/green verification |
 | `extension/src/ai/` | AI providers (Claude, OpenAI-compatible), budget, roles |
 | `extension/src/` | VS Code extension: tutor panel and commands |

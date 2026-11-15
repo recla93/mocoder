@@ -53,6 +53,8 @@ test('the backlog rejects structural errors and dangerous paths', () => {
   assert.match(broken(b => { pom(b).content = pom(b).content.replace('<version>5.12.2</version>', ''); }).join(), /junit-jupiter has no <version>/);
   assert.match(broken(b => b.tasks[1].theory += '\nUsiamo CREATE TABLE books (...)').join(), /schema is not in a versioned \.sql file/);
   assert.match(broken(b => b.tasks[0].files = b.tasks[0].files.filter((f: any) => f.path !== 'pom.xml')).join(), /use mvn but no task creates pom\.xml/);
+  assert.match(broken(b => b.tasks[0].files.push({ path: 'package.json', content: '{ "devDependencies": { "vitest": "latest" } }' })).join(), /vitest has no pinned version/);
+  assert.match(broken(b => b.tasks[0].files.push({ path: 'package.json', content: '{ nope' })).join(), /package\.json: not valid JSON/);
   assert.ok(broken(b => b.conventions = ['solo una']).length);                         // at least 3 rules
   assert.ok((java.conventions?.length ?? 0) >= 5, 'the example declares the project rules');
   // a text that became a structure and cannot be rebuilt: the error says how to fix it
@@ -77,6 +79,16 @@ test('autofix: typical chatbot format errors fix themselves', () => {
   assert.equal(r.value!.tasks[2].checks[0].run, 'mvn -q compile exec:java -Dexec.mainClass=x.Main');
   assert.equal(r.fixes?.length, 3);
   assert.deepEqual(parseBacklog(javaText).fixes, []);                // a correct backlog is not touched
+  // JavaScript tools: npx finds them in node_modules/.bin; vitest without "run" may never end
+  const js = structuredClone(java);
+  js.tasks[0].files!.push({ path: 'package.json', content: '{ "type": "module", "devDependencies": { "vitest": "3.2.4" } }' });
+  js.tasks[0].checks[0].run = 'vitest';
+  js.tasks[1].checks[0].run = 'jest --ci';
+  js.tasks[2].checks[0].run = 'npx vitest run src';                    // already right: untouched
+  const jr = parseBacklog(stringify(js));
+  assert.deepEqual(jr.errors, []);
+  assert.deepEqual(jr.value!.tasks.slice(0, 3).map(t => t.checks[0].run), ['npx vitest run', 'npx jest --ci', 'npx vitest run src']);
+  assert.equal(jr.fixes?.length, 3);
   assert.match(parseBacklog('a: [').errors.join(), /YAML/);
 });
 
