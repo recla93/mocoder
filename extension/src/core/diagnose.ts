@@ -13,6 +13,8 @@ const code = (s: string) => `\`${s.trim()}\``;
 export const MISSING_PROGRAM = /["']([\w.-]+)["'] non \S{0,2}\s?riconosciuto|["']([\w.-]+)["'] is not recognized|([\w.-]+): command not found|Termine '([\w.-]+)' non riconosciuto/;
 /** Maven cannot download plugins or libraries. Also used by the backlog verification. */
 export const MAVEN_DOWNLOAD = /Cannot access central[^\n]*offline mode|Could not resolve dependencies|Could not transfer artifact|or one of its dependencies could not be resolved/;
+/** The JDK is older than the Java version the project compiles for. Also used by the backlog verification. */
+export const JDK_TOO_OLD = /release version (\d+) not supported|invalid target release: (\d+)/;
 
 const RULES: { re: RegExp; tip: (m: RegExpMatchArray, out: string) => Tip }[] = [
   {
@@ -20,6 +22,13 @@ const RULES: { re: RegExp; tip: (m: RegExpMatchArray, out: string) => Tip }[] = 
     tip: m => ({
       title: `Missing program ${m[1] ?? m[2] ?? m[3] ?? m[4]}`,
       text: 'The check command does not exist on this computer. Install the tool named in the first task\'s theory, then reopen VS Code.',
+    }),
+  },
+  {
+    re: JDK_TOO_OLD,
+    tip: m => ({
+      title: 'Your Java is older than the project needs',
+      text: `The project compiles for Java ${m[1] ?? m[2]}, but the JDK in use is older. Install JDK ${m[1] ?? m[2]} or newer and make ${code('JAVA_HOME')} point to it, then reopen VS Code.`,
     }),
   },
   {

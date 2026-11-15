@@ -88,3 +88,12 @@ test('Java: assertTrue without a message names the failing tests and lines', () 
   // values that are not booleans keep the classic comparison
   assert.match(diagnose('expected: <3> but was: <2>').tips[0].text, /expected `3` but the code produced `2`/);
 });
+
+test('Java: a JDK older than the project gets its own tip', () => {
+  // real output from CI: JDK 17 compiling a project with maven.compiler.release 21
+  const out = '[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.14.1:compile (default-compile) on project registro-presenze: Fatal error compiling: error: release version 21 not supported -> [Help 1]';
+  const d = diagnose(out);
+  assert.match(d.tips[0].title, /older than the project needs/);
+  assert.match(d.tips[0].text, /JDK 21 or newer/);
+  assert.match(diagnose('error: invalid target release: 17').tips[0].text, /Java 17/);
+});

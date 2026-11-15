@@ -197,7 +197,9 @@ This batch also translated all tests and fixed three test names that a first pas
   homepage, keywords; `extension/CHANGELOG.md` ships in the `.vsix`. Not yet published anywhere: the first
   Marketplace upload is manual (pre-release); Open VSX needs its own account; README screenshots are missing.
 - **CI** (`.github/workflows/ci.yml`): typecheck + tests + Python example red/green on Windows, Ubuntu and
-  macOS; Java example red/green on Ubuntu; `.vsix` as a build artifact. This is the only macOS/Linux coverage.
+  macOS; Java example red/green on Ubuntu with JDK 21; `.vsix` as a build artifact. This is the only macOS/Linux
+  coverage. Its first runs found a JDK 17 vs `release 21` mismatch: mocoder now has an offline tip and a
+  `missing` verification result for a JDK older than the project needs.
 - **Languages:** the core runs any check command, but offline tips, test counts, command autofixes, build-file
   checks and missing-dependency detection exist only for Python/pytest and Java/Maven (+ npm partly). Plan:
   JavaScript/TypeScript next, then C#, Go, Rust; C/C++ last. The second full path should be JS/TS.

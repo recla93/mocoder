@@ -183,6 +183,7 @@ test('missing on this computer: a tool or a declared dependency, never the check
   assert.match(missingOnThisComputer(root, "'mvn' is not recognized as an internal or external command")!, /program mvn/);
   assert.match(missingOnThisComputer(root, 'mvn: command not found')!, /program mvn/);
   assert.match(missingOnThisComputer(root, '[ERROR] Could not resolve dependencies for project x')!, /Maven could not download/);
+  assert.match(missingOnThisComputer(root, 'Fatal error compiling: error: release version 21 not supported')!, /older than Java 21/);
   assert.equal(missingOnThisComputer(root, 'E   assert 1 == 2'), undefined);
 });
 

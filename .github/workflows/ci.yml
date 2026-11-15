@@ -50,7 +50,7 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'   # the Java example compiles with maven.compiler.release 21
       - run: npm ci
       - name: Java example, red → green
         run: npm run verify -- ../examples/registro-presenze/.mocoder/backlog.yaml ../examples/registro-presenze/.mocoder/solution.yaml

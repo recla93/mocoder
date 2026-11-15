@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { Backlog, Solution } from './backlog.ts';
 import { applySolution, prepareTask } from './workspace.ts';
 import { passed, runChecks, type CheckResult } from './checks.ts';
-import { MAVEN_DOWNLOAD, MISSING_PROGRAM } from './diagnose.ts';
+import { JDK_TOO_OLD, MAVEN_DOWNLOAD, MISSING_PROGRAM } from './diagnose.ts';
 
 export type Log = (line: string) => void;
 
@@ -30,6 +30,8 @@ const declared = (text: string, name: string) =>
 export function missingOnThisComputer(root: string, output: string): string | undefined {
   const program = output.match(MISSING_PROGRAM);
   if (program) return `the program ${program.slice(1).find(Boolean)} is not installed (or not on the PATH): install it, then reopen VS Code`;
+  const jdk = output.match(JDK_TOO_OLD);
+  if (jdk) return `the JDK on this computer is older than Java ${jdk[1] ?? jdk[2]}, which the project requires: install JDK ${jdk[1] ?? jdk[2]} or newer and point JAVA_HOME to it`;
   if (MAVEN_DOWNLOAD.test(output)) {
     return 'Maven could not download the project dependencies: check the internet connection (or the proxy)';
   }
