@@ -658,6 +658,14 @@ async function approveCommands(ctx: vscode.ExtensionContext, out: vscode.OutputC
 const describeFailure = (f: VerifyFailure) =>
   `${f.taskId}: ${f.kind === 'red' ? 'the checks already pass before the work, so they verify nothing' : 'the checks fail even with the reference solution'}.`;
 
+/** Nothing for the AI to fix: the user installs what is missing and verifies again. */
+async function showMissing(f: VerifyFailure) {
+  const go = await vscode.window.showWarningMessage(
+    `${f.taskId} cannot be verified on this computer: ${f.missing}. The backlog is not necessarily wrong: the tasks before ${f.taskId} passed. Verify again afterwards.`,
+    'Verify again');
+  if (go) await vscode.commands.executeCommand('mocoder.verifyBacklog');
+}
+
 async function verifyBacklog(ctx: vscode.ExtensionContext, out: vscode.OutputChannel) {
   const root = rootDir();
   if (!root || !existsSync(join(root, BACKLOG)) || !existsSync(join(root, SOLUTION))) {
@@ -682,6 +690,7 @@ async function verifyBacklog(ctx: vscode.ExtensionContext, out: vscode.OutputCha
     { location: vscode.ProgressLocation.Notification, title: 'mocoder: verifying the backlog…' },
     () => check(b.value!, s.value!));
   if (!failure) return void vscode.window.showInformationMessage('Backlog verified: all checks work. You can start.');
+  if (failure.kind === 'missing') return showMissing(failure);
 
   const complete = await getComplete(ctx, 'main');
   // with a free or local model, fixing the tests rarely works: the recommended path is an external LLM
@@ -716,6 +725,7 @@ async function verifyBacklog(ctx: vscode.ExtensionContext, out: vscode.OutputCha
   if (!result.failure) {
     return void vscode.window.showInformationMessage(`Backlog fixed in ${result.rounds === 1 ? '1 pass' : `${result.rounds} passes`} and verified: you can start.`);
   }
+  if (result.failure.kind === 'missing') return showMissing(result.failure);
   const again = await vscode.window.showWarningMessage(
     `The Planner could not fix everything. ${describeFailure(result.failure)} Try a more capable model or an external LLM.`, COPY_REQUEST);
   if (again) await copyForExternal(fixRequest(result.backlogText, result.solutionText, result.failure));

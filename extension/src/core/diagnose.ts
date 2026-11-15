@@ -8,18 +8,22 @@ export interface Diagnosis { tests?: { passed: number; failed: number }; tips: T
 
 const code = (s: string) => `\`${s.trim()}\``;
 
+/** A program that does not exist (Windows in Italian and English, Unix). Also used by the backlog verification. */
+// cmd uses double quotes, and the "è" arrives mangled by the OEM encoding: the rule accepts both
+export const MISSING_PROGRAM = /["']([\w.-]+)["'] non \S{0,2}\s?riconosciuto|["']([\w.-]+)["'] is not recognized|([\w.-]+): command not found|Termine '([\w.-]+)' non riconosciuto/;
+/** Maven cannot download plugins or libraries. Also used by the backlog verification. */
+export const MAVEN_DOWNLOAD = /Cannot access central[^\n]*offline mode|Could not resolve dependencies|Could not transfer artifact|or one of its dependencies could not be resolved/;
+
 const RULES: { re: RegExp; tip: (m: RegExpMatchArray, out: string) => Tip }[] = [
-  // missing tools (Windows in Italian and English, Unix)
   {
-    // cmd uses double quotes, and the "è" arrives mangled by the OEM encoding: the rule accepts both
-    re: /["']([\w.-]+)["'] non \S{0,2}\s?riconosciuto|["']([\w.-]+)["'] is not recognized|([\w.-]+): command not found|Termine '([\w.-]+)' non riconosciuto/,
+    re: MISSING_PROGRAM,
     tip: m => ({
       title: `Missing program ${m[1] ?? m[2] ?? m[3] ?? m[4]}`,
       text: 'The check command does not exist on this computer. Install the tool named in the first task\'s theory, then reopen VS Code.',
     }),
   },
   {
-    re: /Cannot access central[^\n]*offline mode|Could not resolve dependencies|Could not transfer artifact|or one of its dependencies could not be resolved/,
+    re: MAVEN_DOWNLOAD,
     tip: () => ({ title: 'Maven cannot download what it needs', text: 'The first build downloads plugins and libraries from the internet: check the connection (or the proxy) and try again. After the first time Maven works offline too.' }),
   },
   { re: /\[stopped after (\d+)s\]/, tip: m => ({ title: 'The program does not terminate', text: `It stopped after ${m[1]} seconds: perhaps an infinite loop, or the program is waiting for keyboard input that nobody provides.` }) },

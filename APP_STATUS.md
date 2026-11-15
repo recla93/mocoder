@@ -135,6 +135,15 @@ Polish pass (2026-11-14, second session):
     quickstart / VS Code "Create Java Project", `gradle init`, `npm init`, `dotnet new`, `cargo new`)
     and what to align afterwards; files and checks never depend on generator output. Decision: mocoder does **not** run generators itself (needs the tool
     and network, clashes with given files, removes the "build by hand" point).
+26. Backlog verification with missing dependencies: `VerifyFailure.kind` gains `'missing'`
+    (`missingOnThisComputer` in `core/verify.ts`). A green failure caused by a missing program, a
+    Maven download failure, a Python module absent from the project but declared in
+    `requirements.txt`/`pyproject.toml`, or a declared npm package stops the verification with what
+    to install (the pip command lists the solution's requirements, since the student's project may not
+    have the file yet). The Planner fix loop stops on it and the panel offers *Verify again*, never an AI
+    fix. Seen on the FastAPI backlog: T1–T2 green, T3 `STOP … fastapi is not installed`.
+    shortcut: an import name different from its package name (`yaml`/`PyYAML`) stays a `green` failure;
+    npm packages can never be verified in advance (npm installs into the project, not the temp folder).
 
 This batch also translated all tests and fixed three test names that a first pass missed
 (`extension/src/core/trust.test.ts`).

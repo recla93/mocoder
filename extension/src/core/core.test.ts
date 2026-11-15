@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { stringify } from 'yaml';
@@ -9,6 +9,7 @@ import { prepareTask, inside } from './workspace.ts';
 import { runChecks, passed } from './checks.ts';
 import { diagnose } from './diagnose.ts';
 import { statusOf, nextTask, completedMilestone } from './progress.ts';
+import { missingOnThisComputer, redGreen } from './verify.ts';
 
 const examples = join(import.meta.dirname, '../../../examples');
 const read = (p: string) => readFileSync(join(examples, p), 'utf8');
@@ -163,4 +164,37 @@ test('progress: unlock by dependencies and completed milestone', () => {
   p.done.push('T05');
   assert.equal(completedMilestone(java, p, java.tasks[4])?.id, 'M1');
   assert.equal(nextTask(java, p)?.id, 'T06');
+});
+
+test('missing on this computer: a tool or a declared dependency, never the check fault', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mocoder-missing-'));
+  writeFileSync(join(root, 'requirements.txt'), 'FastAPI==0.115.0\nhttpx==0.27.2\n');
+  writeFileSync(join(root, 'package.json'), '{ "dependencies": { "@scope/lib": "1.0.0", "left-pad": "1.3.0" } }');
+  const py = (m: string) => `E   ModuleNotFoundError: No module named '${m}'`;
+  assert.match(missingOnThisComputer(root, py('fastapi'))!, /fastapi is not installed.*pip install "FastAPI==0.115.0" "httpx==0.27.2"/);
+  assert.match(missingOnThisComputer(root, py('fastapi.testclient'))!, /fastapi/);              // top-level name counts
+  // not declared, or part of the project: the check (or the solution) is what is wrong
+  assert.equal(missingOnThisComputer(root, py('requests')), undefined);
+  mkdirSync(join(root, 'httpx'));
+  assert.equal(missingOnThisComputer(root, py('httpx')), undefined);
+  assert.match(missingOnThisComputer(root, "Error: Cannot find module 'left-pad'")!, /does not install npm packages.*npm install/);
+  assert.match(missingOnThisComputer(root, "Cannot find package '@scope/lib/sub'")!, /@scope\/lib/);
+  assert.equal(missingOnThisComputer(root, "Cannot find module './util'"), undefined);
+  assert.match(missingOnThisComputer(root, "'mvn' is not recognized as an internal or external command")!, /program mvn/);
+  assert.match(missingOnThisComputer(root, 'mvn: command not found')!, /program mvn/);
+  assert.match(missingOnThisComputer(root, '[ERROR] Could not resolve dependencies for project x')!, /Maven could not download/);
+  assert.equal(missingOnThisComputer(root, 'E   assert 1 == 2'), undefined);
+});
+
+test('red/green: an uninstalled declared dependency stops as "missing", not as a wrong check', async () => {
+  const check = { run: 'python -c "import mocoder_never_installed_pkg"' };
+  const task = { id: 'T01', milestone: 'M1', title: 'T', goal: 'g', theory: '', hints: [], checks: [check], files: [] };
+  const backlog = { tasks: [task] } as unknown as Parameters<typeof redGreen>[0];
+  const solution = { tasks: { T01: [{ path: 'requirements.txt', content: 'mocoder-never-installed-pkg==1.0\n' }] } } as unknown as Parameters<typeof redGreen>[1];
+  const f = await redGreen(backlog, solution, () => {});
+  assert.equal(f?.kind, 'missing');
+  assert.match(f!.missing!, /mocoder_never_installed_pkg is not installed/);
+  // without the declaration it is the check's fault, as before
+  const undeclared = { tasks: { T01: [{ path: 'README.md', content: 'x\n' }] } } as unknown as Parameters<typeof redGreen>[1];
+  assert.equal((await redGreen(backlog, undeclared, () => {}))?.kind, 'green');
 });

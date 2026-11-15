@@ -70,8 +70,11 @@ You can check which build you have: Extensions view → mocoder → version (`0.
    Write the idea in your language and name the technology you want (e.g. *"A Java command-line app to manage the
    loans of a small library"*): the path follows both.
 4. Optional but recommended: **Verify the path checks**. For every task mocoder checks, in a temporary folder, that
-   the checks fail before the work and pass with the reference solution. It needs the project's tools **and
-   dependencies** installed (a missing `fastapi` makes a check fail even with the solution).
+   the checks fail before the work and pass with the reference solution. It uses the project's tools and
+   dependencies installed on your computer: when one is missing (a program, a Maven download, a Python package
+   declared by the project) it stops and tells you what to install, e.g.
+   `python -m pip install "fastapi==0.115.0" …`, instead of calling the check wrong. npm packages cannot be checked in
+   advance, because npm installs them into the project folder.
 5. For each task: read the theory, **Prepare and open the files**, write the code, **Verify**.
    When the checks pass, the task is committed (`feat(T01): …`) and the next one unlocks.
 
@@ -158,7 +161,8 @@ that folder and is asked again if the commands change, even when the Planner rew
 | *"Too many requests…"* | provider quota; the message quotes the provider's reason (per-minute limit or daily cap). Your question goes back into the box: send it again later |
 | *"Model or endpoint not found"* | wrong model name or address; on OpenRouter `:free` models also the privacy setting above |
 | *"The provider stopped answering"* | no data for 120 s: try again or switch provider |
-| A check fails *"even with the reference solution"* | the project's tools or dependencies are missing, or the check is wrong: *Copy the request for an external LLM* or *Have the Planner fix it* |
+| *"T3 cannot be verified on this computer: …"* | a tool or a declared dependency is missing: run the command in the message, then *Verify again*. The backlog is not wrong |
+| A check fails *"even with the reference solution"* | the check (or the solution) is wrong: *Copy the request for an external LLM* or *Have the Planner fix it* |
 | Details of any failure | Output panel → channel **mocoder** |
 
 ## Repository

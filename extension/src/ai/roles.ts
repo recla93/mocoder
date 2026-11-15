@@ -85,7 +85,8 @@ export async function fixUntilGreen(
     if (!parsed.backlog || !parsed.solution) throw new Error(`invalid backlog or solution: ${parsed.errors.join('; ')}`);
     const failure = round === 0 && known ? known : await verify(parsed.backlog, parsed.solution);
     const n = failure ? tries.get(failure.taskId) ?? 0 : 0;
-    if (!failure || n >= MAX_FIX_ROUNDS || round >= MAX_TOTAL_FIXES) return { backlogText, solutionText, failure, rounds: round };
+    // "missing" is this computer's problem, not the backlog's: the Planner cannot fix it
+    if (!failure || failure.kind === 'missing' || n >= MAX_FIX_ROUNDS || round >= MAX_TOTAL_FIXES) return { backlogText, solutionText, failure, rounds: round };
     tries.set(failure.taskId, n + 1);
     log(`Fixing ${failure.taskId}, attempt ${n + 1}/${MAX_FIX_ROUNDS} (${failure.kind === 'red' ? 'passes before the work' : 'fails with the solution'})`);
     const fixed = await plan(complete, fixRequest(backlogText, solutionText, failure));
