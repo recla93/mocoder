@@ -6,7 +6,7 @@ verified, what is not, and the decisions you must not undo.
 Everything here is about the code; the product itself is documented in
 [README.md](README.md) and [docs/ARCHITETTURA.md](docs/ARCHITETTURA.md).
 
-Snapshot date: 2026-11-15. All work below is committed on branch `mocoder-0.2` (commit `f84d16e`, on top of `32cd980`), not yet merged into `master` nor pushed.
+Snapshot date: 2026-11-15. All work below is committed on `master` (`f84d16e`), not yet pushed to `origin`.
 
 ## 1. What mocoder is
 
@@ -23,7 +23,7 @@ on top through two adapters (Anthropic SDK, any OpenAI-compatible endpoint).
   - `node node_modules/typescript/bin/tsc -p .` → 0 errors
   - `npm run build` (esbuild) → ok, `dist/extension.cjs` ≈ 1.8 MB
   - `node --test "src/**/*.test.ts"` → **34/34 pass**
-- **Committed** on branch `mocoder-0.2`. The UI proof in §7 has been run (by the assistant, see §7).
+- **Committed** on `master`, not pushed. The UI proof in §7 has been run (by the assistant, see §7).
 - **Version 0.2.0** (`extension/package.json`), built and installed in the user's VS Code from this
   working tree. Pre-release numbering: **1.0.0 is reserved for the first public release.**
   After code changes, the installed build is stale until `npm run package` and
