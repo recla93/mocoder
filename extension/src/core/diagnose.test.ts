@@ -73,3 +73,18 @@ test('environment: Maven offline, missing tool, no invented tips', () => {
   assert.deepEqual(diagnose('qualcosa di mai visto').tips, []);
   assert.equal(diagnose('qualcosa di mai visto').tests, undefined);
 });
+
+test('Java: assertTrue without a message names the failing tests and lines', () => {
+  // real Surefire output from a generated path (assertTrue without a message)
+  const out = `org.opentest4j.AssertionFailedError: expected: <true> but was: <false>
+[ERROR] Failures: 
+[ERROR]   ProjectStructureTest.gitignoreCoversGeneratedFolders:21 expected: <true> but was: <false>
+[ERROR]   ProjectStructureTest.pomHasExpectedCoordinates:15 expected: <true> but was: <false>
+[ERROR] Tests run: 3, Failures: 3, Errors: 0, Skipped: 0`;
+  const d = diagnose(out);
+  assert.equal(d.tips.length, 1);                       // not also "the code produced false"
+  assert.match(d.tips[0].text, /ProjectStructureTest\.gitignoreCoversGeneratedFolders \(line 21\)/);
+  assert.match(d.tips[0].text, /pomHasExpectedCoordinates \(line 15\)/);
+  // values that are not booleans keep the classic comparison
+  assert.match(diagnose('expected: <3> but was: <2>').tips[0].text, /expected `3` but the code produced `2`/);
+});

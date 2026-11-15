@@ -268,6 +268,8 @@ class Tutor implements vscode.WebviewViewProvider {
       guidance: guidance(),
       results: this.results?.taskId === task?.id ? this.results?.list : undefined,
       committed: this.results?.taskId === task?.id ? this.results?.committed : undefined,
+      // the toast that offers it disappears in seconds: the panel keeps the milestone review available
+      milestoneDone: task && this.backlog ? completedMilestone(this.backlog, this.progress, task)?.title : undefined,
       busy: this.busy,
       ai: await aiLabel(this.ctx),
       canVerifyBacklog: !!rootDir() && existsSync(join(rootDir()!, SOLUTION)),
@@ -295,6 +297,7 @@ class Tutor implements vscode.WebviewViewProvider {
       case 'ask': return m.text?.trim() ? this.ask(m.text.trim()) : undefined;
       case 'explain': return this.ask('The verification is failing. Help me understand the error without giving me the solution.');
       case 'review': return this.review('task');
+      case 'reviewMilestone': return this.review('milestone');
       case 'verifyBacklog': return vscode.commands.executeCommand('mocoder.verifyBacklog');
       case 'search':
         // only the task's searches, always to a search engine: the page cannot open arbitrary URLs

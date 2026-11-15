@@ -145,6 +145,26 @@ Polish pass (2026-11-14, second session):
     shortcut: an import name different from its package name (`yaml`/`PyYAML`) stays a `green` failure;
     npm packages can never be verified in advance (npm installs into the project, not the temp folder).
 
+Full path run (2026-11-15, installed build, real VS Code window, free OpenRouter model): the generated
+Java library path (`Desktop\mocoder-prove\nuovo-progetto`, 12 tasks, 7 milestones) was completed end to end
+from the panel: skeleton failing first, hints, offline tips, "Explain the error", a deliberate off-by-one in T4
+caught and fixed, milestone review, 12 `feat(Tn)` commits with no solution/backup/`target/` tracked, "Path
+finished". Fixes from that run:
+
+27. Offline tip for `assertTrue`/`assertFalse` without a message: names the failing tests and lines from
+    Surefire's summary instead of "expected `true` but the code produced `false`".
+28. `planner.md`: every assertion in the provided tests has a message in the idea's language.
+29. Mentor and Reviewer answer in the language of the task, not of the English button requests (the tutor
+    answered "Explain the error" in English on an Italian path; reviews would always have been English).
+    The Mentor's `guided` snippet may not be the corrected version of the student's own line (it was).
+    Not re-run live after the change.
+30. Milestone review button in the panel when the selected task's milestone is complete: before, the only
+    entry point was a toast that disappears in seconds.
+31. Panel polish: long file paths wrap; the "Path" list keeps its open/closed state across updates.
+
+Known, not fixed: the review's "Outcome:" label stays English; generated content quality (the project README
+says `mvn exec:java` without `compile`, flattened indentation in the solution's Java) is the model's.
+
 This batch also translated all tests and fixed three test names that a first pass missed
 (`extension/src/core/trust.test.ts`).
 

@@ -98,7 +98,10 @@ explaining the why, but do not omit them.
 1. Every task has automated checks that fail until the work is done. A check passes only if the
    command ends with exit code 0 (and the output contains `expect`, if present): a task's goal cannot
    be "a test that fails". To teach TDD, the student's test fails in the skeleton and passes once the task is done.
-2. The provided tests (`given: true`) use only code created in that task or in previous ones.
+2. The provided tests (`given: true`) use only code created in that task or in previous ones. Every assertion has a
+   short message, in the language of the idea, that says what is missing (e.g.
+   `assertTrue(Files.exists(path), ".gitignore deve esistere")`, `assert total == 3, "..."`): the student reads it
+   when the check fails, and `expected: <true> but was: <false>` alone says nothing.
 3. Deterministic tests: no network, no current date/time (use fixed dates), no keyboard input, files only in
    temporary folders.
 4. `run`: a single command per check, without `&&` or pipes, valid on Windows, macOS and Linux, executed from the

@@ -70,7 +70,18 @@ const RULES: { re: RegExp; tip: (m: RegExpMatchArray, out: string) => Tip }[] = 
   { re: /incompatible types: ([^\n]+)/, tip: m => ({ title: 'Incompatible types', text: `${m[1]}. Check the type you return or assign.` }) },
   { re: /missing return statement/, tip: () => ({ title: 'Missing return', text: 'A method that declares a return type must return a value in every branch, including inside ifs.' }) },
   { re: /';' expected/, tip: () => ({ title: 'Missing semicolon', text: 'In Java every statement ends with `;`: look at the line indicated by the compiler and the one before it.' }) },
-  { re: /expected: <(.+?)> but was: <(.+?)>/, tip: m => ({ title: 'Result different from expected', text: `The test expected ${code(m[1])} but the code produced ${code(m[2])}.` }) },
+  {
+    // assertTrue/assertFalse without a message: the only clue is which test fails, and at which line
+    re: /expected: <(?:true|false)> but was: <(?:true|false)>/,
+    tip: (_m, out) => {
+      const failed = [...new Set([...out.matchAll(/^\[ERROR\]\s+(\w+\.\w+):(\d+) expected: <(?:true|false)>/gm)].map(f => `${f[1]} (line ${f[2]})`))];
+      return {
+        title: 'A condition checked by the test is still false',
+        text: `${failed.length ? `Failing: ${failed.slice(0, 3).map(code).join(', ')}. ` : ''}Open the test at that line: the test name and the condition say what your code is still missing.`,
+      };
+    },
+  },
+  { re: /expected: <(?!(?:true|false)> but was: <(?:true|false)>)(.+?)> but was: <(.+?)>/, tip: m => ({ title: 'Result different from expected', text: `The test expected ${code(m[1])} but the code produced ${code(m[2])}.` }) },
   { re: /Expected ([\w.]+) to be thrown, but nothing was thrown/, tip: m => ({ title: 'Missing an error', text: `The test expects the code to throw ${code(m[1].split('.').pop()!)} with this data, but that does not happen.` }) },
   { re: /UnsupportedOperationException: TODO/, tip: () => ({ title: 'There is still a skeleton', text: `A method still throws ${code('UnsupportedOperationException("TODO")')}: replace it with your code.` }) },
   { re: /NullPointerException/, tip: () => ({ title: 'Null value', text: 'The code uses an object that is null: check that you created or assigned it before using it.' }) },

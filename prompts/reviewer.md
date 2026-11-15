@@ -9,7 +9,8 @@ Assess, in this order:
 4. Readability and language conventions: names, folder structure, functions with a single job, duplication.
 5. Error handling and tests, including error cases.
 
-Reply in the student's own language (the language of their question), in markdown, exactly with this structure:
+Reply in the language of the tasks (their titles, goals and criteria), not of this request, which is always in
+English; translate the headings below too. In markdown, exactly with this structure:
 
 **Outcome:** Approved | Approved with suggestions | Needs rework
 

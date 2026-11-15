@@ -18,6 +18,7 @@ export interface Page {
   guidance: Guidance;
   results?: CheckResult[];
   committed?: boolean;      // false = the checks passed but the git commit failed
+  milestoneDone?: string;   // title of the milestone this task completed: its review stays one click away
   busy: boolean;
   ai?: string;              // model and usage, if AI is configured
   canVerifyBacklog: boolean; // there is a reference solution: the checks can be verified
@@ -130,6 +131,7 @@ function tutorSection(t: Task, p: Page) {
       ${button('ask', 'Ask', p.thinking ? 'disabled' : '')}
       ${failed ? button('explain', 'Explain the error', `class="secondary" ${p.thinking ? 'disabled' : ''}`) : ''}
       ${done ? button('review', 'Ask for a review', `class="secondary" ${p.thinking ? 'disabled' : ''}`) : ''}
+      ${p.milestoneDone ? button('reviewMilestone', `Review the milestone "${p.milestoneDone}"`, `class="secondary" ${p.thinking ? 'disabled' : ''}`) : ''}
     </div>`;
 }
 
@@ -155,7 +157,7 @@ function taskDetail(t: Task, p: Page, b: Backlog) {
     <p class="goal"><b>Goal:</b> ${esc(t.goal)}</p>
     ${theory}
     ${search}
-    ${files ? `<h3>Your files</h3><ul>${files}</ul>` : ''}
+    ${files ? `<h3>Your files</h3><ul class="files">${files}</ul>` : ''}
     <div class="actions">${button('start', 'Prepare and open the files', 'class="secondary"')} ${button('verify', 'Verify', p.busy ? 'disabled' : '')}</div>
     ${results(p, b)}
     ${hints}
@@ -179,7 +181,7 @@ export function renderPage(p: Page): string {
       </label>
     </header>
     ${b.conventions?.length ? `<details class="list"><summary>Project rules (${b.conventions.length})</summary><ul>${b.conventions.map(c => `<li>${esc(c)}</li>`).join('')}</ul></details>` : ''}
-    <details class="list"><summary>Path</summary>${taskList(b, p)}</details>
+    <details class="list" id="path"><summary>Path</summary>${taskList(b, p)}</details>
     ${p.task ? taskDetail(p.task, p, b) : '<p>No task available.</p>'}`;
 
   return `<!DOCTYPE html>
@@ -208,6 +210,7 @@ export function renderPage(p: Page): string {
   .actions { margin: 12px 0; }
   progress { width: 100%; } select { background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border); }
   a { color: var(--vscode-textLink-foreground); }
+  .files a { overflow-wrap: anywhere; }   /* long Java paths have no spaces to wrap at */
   textarea { width: 100%; box-sizing: border-box; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, transparent); font: inherit; padding: 4px; }
   .msg { margin: 6px 0; padding: 4px 8px; border-left: 3px solid var(--vscode-textBlockQuote-border); }
   .msg.student { border-color: var(--vscode-button-background); } .msg.review { border-color: var(--vscode-testing-iconPassed); }
@@ -240,6 +243,12 @@ export function renderPage(p: Page): string {
   document.addEventListener('change', e => {
     if (e.target.dataset.type === 'guidance') vscode.postMessage({ type: 'guidance', value: e.target.value });
   });
+  // the path list stays open or closed across panel updates, as the user left it
+  const pathList = document.getElementById('path');
+  if (pathList) {
+    pathList.open = !!(vscode.getState() || {}).pathOpen;
+    pathList.addEventListener('toggle', () => vscode.setState({ ...vscode.getState(), pathOpen: pathList.open }));
+  }
   // remember the scroll between page updates
   const state = vscode.getState() || {};
   if (state.scroll) window.scrollTo(0, state.scroll);

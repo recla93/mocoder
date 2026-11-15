@@ -54,3 +54,13 @@ test('a failed commit is not reported as saved, and a failed question comes back
   assert.match(failed, /git commit failed/);
   assert.match(failed, /&lt;\/textarea&gt;&lt;b&gt;<\/textarea>/);
 });
+
+test('a completed milestone keeps its review button in the panel', () => {
+  const backlog = {
+    title: 'P', level: 'beginner', milestones: [{ id: 'M1', title: 'Fondamenta', goal: 'g' }],
+    tasks: [{ id: 'T01', milestone: 'M1', title: 'T', goal: 'g', theory: '', hints: [], checks: [{ run: 'x' }] }],
+  } as unknown as NonNullable<Page['backlog']>;
+  const base = { backlog, task: backlog.tasks[0], ai: 'm', progress: { done: ['T01'], hints: {} } };
+  assert.match(renderPage(page({ ...base, milestoneDone: 'Fondamenta' })), /data-type="reviewMilestone"[^>]*>Review the milestone &quot;Fondamenta&quot;/);
+  assert.doesNotMatch(renderPage(page(base)), /reviewMilestone/);
+});
