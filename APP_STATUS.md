@@ -6,7 +6,7 @@ verified, what is not, and the decisions you must not undo.
 Everything here is about the code; the product itself is documented in
 [README.md](README.md) and [docs/ARCHITETTURA.md](docs/ARCHITETTURA.md).
 
-Snapshot date: 2026-11-14. `HEAD` = `32cd980` (all work below is **uncommitted**).
+Snapshot date: 2026-11-15. All work below is committed on branch `mocoder-0.2` (commit `f84d16e`, on top of `32cd980`), not yet merged into `master` nor pushed.
 
 ## 1. What mocoder is
 
@@ -15,7 +15,7 @@ red→green checks per task, one commit per task, an optional AI tutor (Planner,
 Reviewer). The core works **with no AI and no network**; the AI is optional and layered
 on top through two adapters (Anthropic SDK, any OpenAI-compatible endpoint).
 
-## 2. Working tree state (uncommitted)
+## 2. Working tree state
 
 - 26 modified files + 2 untracked (`examples/broken/`, `extension/src/view.test.ts`).
 - `git diff --stat`: ~+1100 / −850.
@@ -23,7 +23,7 @@ on top through two adapters (Anthropic SDK, any OpenAI-compatible endpoint).
   - `node node_modules/typescript/bin/tsc -p .` → 0 errors
   - `npm run build` (esbuild) → ok, `dist/extension.cjs` ≈ 1.8 MB
   - `node --test "src/**/*.test.ts"` → **34/34 pass**
-- **Nothing is committed.** The UI proof in §7 has now been run (by the assistant, see §7).
+- **Committed** on branch `mocoder-0.2`. The UI proof in §7 has been run (by the assistant, see §7).
 - **Version 0.2.0** (`extension/package.json`), built and installed in the user's VS Code from this
   working tree. Pre-release numbering: **1.0.0 is reserved for the first public release.**
   After code changes, the installed build is stale until `npm run package` and
@@ -77,7 +77,7 @@ content on purpose: they are *generated content*, like the Planner will produce.
 
 ## 4. Fixes applied in this batch
 
-Earlier fixes (still uncommitted):
+Earlier fixes:
 
 1. `capFiles` context cap (60k chars) for the tutor.
 2. Dated backups (`*.bak`) written before `verifyBacklog` overwrites backlog/solution.
