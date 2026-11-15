@@ -6,7 +6,7 @@ verified, what is not, and the decisions you must not undo.
 Everything here is about the code; the product itself is documented in
 [README.md](README.md) and [docs/ARCHITETTURA.md](docs/ARCHITETTURA.md).
 
-Snapshot date: 2026-11-15. All work below is committed on `master` (`f84d16e`), not yet pushed to `origin`.
+Snapshot date: 2026-11-15. All work below is committed on `master` (`bb07bd8`) and pushed to `origin`.
 
 ## 1. What mocoder is
 
@@ -23,7 +23,7 @@ on top through two adapters (Anthropic SDK, any OpenAI-compatible endpoint).
   - `node node_modules/typescript/bin/tsc -p .` → 0 errors
   - `npm run build` (esbuild) → ok, `dist/extension.cjs` ≈ 1.8 MB
   - `node --test "src/**/*.test.ts"` → **34/34 pass**
-- **Committed** on `master`, not pushed. The UI proof in §7 has been run (by the assistant, see §7).
+- **Committed** on `master` and pushed. The UI proof in §7 has been run (by the assistant, see §7).
 - **Version 0.2.0** (`extension/package.json`), built and installed in the user's VS Code from this
   working tree. Pre-release numbering: **1.0.0 is reserved for the first public release.**
   After code changes, the installed build is stale until `npm run package` and
@@ -154,7 +154,9 @@ This batch also translated all tests and fixed three test names that a first pas
 - **"Avoid" list stays:** Groq free tier, OpenRouter `:free` models.
 - **Do not translate** the Italian example projects' content, the regexes in `diagnose.ts`
   / `checks.ts` (they match real Italian *and* English tool output), or `examples/*` test data.
-- Repo docs are English; **commits are Italian** (`mocoder: <descrizione>`).
+- Repo docs are English; **commits are Italian** (`mocoder: <descrizione>`). Claude is credited with the plain
+  last line `Co-authored with Claude Opus 5.5 (Anthropic)`, **not** a `Co-Authored-By:` trailer (the owner wants
+  the credit as text, without the GitHub co-author avatar).
 - Shortcuts are marked in code as `shortcut: <limit>, <when to upgrade>`; keep that form.
 
 ## 6. Key constants
